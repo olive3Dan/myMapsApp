@@ -1,0 +1,387 @@
+@import "node_modules/ol/ol.css";
+
+html,
+body {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  width:100%;
+  overflow: hidden;
+}
+
+#map {
+  flex-grow: 1;
+  /* Adjust height to occupy the remaining space */
+  width: 100%;
+  height: 100%;
+  /* Remove position, top, and left properties */
+}
+
+/* USERS */
+#currentUserDisplay {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+}
+
+#currentUserDisplay::before {
+  content: "\f007"; /* Icono de usuario de Font Awesome */
+  font-family: "Font Awesome 5 Free";
+  font-weight: 900;
+  font-size: 24px;
+  margin-right: 10px;
+}
+#usersMenuContainer {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: rgba(181, 181, 181, 0.8);
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  z-index: 1000; /* Ajusta este valor según sea necesario */
+}
+
+#usersMenuContainer a {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 5px;
+  background: #007BFF;
+  color: white;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#usersMenuContainer a:hover {
+  background: #0056b3;
+}
+
+#signoutButton {
+  margin-top: 20px;
+  background: #ff0000;
+}
+
+#signoutButton:hover {
+  background: #b30000;
+}
+/* Usuario actual */
+#currentUserDisplay {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 10px;
+}
+/* popUpForms */
+.popupForm {
+  display: none;
+  background: #f0f0f0;
+  border-radius: 10px;
+  padding: 20px;
+  width: 300px;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+}
+.popupForm input[type="text"],
+.popupForm input[type="password"] {
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+  box-sizing: border-box;
+}
+.popupForm button {
+  margin: 10px 0;
+  padding: 10px;
+  border: none;
+  border-radius: 5px;
+  background: #007BFF;
+  color: white;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.popupForm button:hover {
+  background: #0056b3;
+}
+.popupForm label.errorLabel {
+  color: #ff0000;
+  display: block;
+  margin-top: 10px;
+}
+.popupForm {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #f9f9f9;
+  padding: 20px;
+  border-radius: 10px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.formInput {
+  margin: 10px 0;
+  padding: 5px;
+  width: 80%;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+.formButton {
+  margin: 5px;
+  padding: 10px;
+  border: none;
+  border-radius: 5px;
+  background: #007BFF;
+  color: white;
+  cursor: pointer;
+  text-decoration: none;
+  /*display: inline-block;*/
+  text-align: center;
+}
+.formButton:hover {
+  background: #0056b3;
+}
+.errorLabel {
+  color: red;
+  margin-top: 10px;
+}
+.popupForm select {
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background-color: white;
+  font-size: 16px; 
+  /* Agrega cualquier otro estilo deseado */
+}
+.popupForm select:hover {
+  /* Agrega estilos de hover aquí si lo deseas */
+}
+
+/*SIDEBAR*/
+#project_menu button {
+  margin-top: 10px;
+  padding: 10px;
+  border: none;
+  background-color: #007BFF;
+  color: #fff;
+  cursor: pointer;
+  text-decoration: none;
+  border-radius: 5px;
+  display: block;
+  overflow-y: auto;
+}
+#project_menu button:hover {
+  background-color: #0056b3;
+}
+.sidebar {
+  width: auto;
+  background-color: #ffffff;
+  box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.05);
+  padding: 20px;
+  /* Set a height so that the sidebar stretches along the map */
+  height: 100%;
+}
+/*LAYERS ACCORDION*/
+.accordion {
+  width: 100%;
+  border: 1px solid #dcdcdc;
+}
+.accordion-item {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  border-left: transparent 4px solid;
+  transition: border-left-color 0.3s;
+  cursor: pointer;
+}
+.accordion-item:hover {
+  border-left-color: gray;
+}
+.accordion-item.highlighted {
+  border-left-color: #007BFF;
+}
+.accordion-header {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+.accordion-header label {
+  display: flex;
+  cursor: pointer;
+}
+
+.accordion-title {
+  width: auto;
+  padding: 10px;
+  text-align: left;
+}
+.accordion-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  padding: 0 10px;
+}
+.accordion-content.show {
+  max-height: 500px; /* Or set to a value suitable for your largest content */
+  padding: 10px;
+}
+.accordion-edit-btn {
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-left: auto;
+}
+.accordion-edit-btn:hover {
+  background-color: #0056b3;
+}
+.accordion-buttons {
+  margin-left: auto; /* Alinea los botones a la derecha */
+}
+.accordion-delete-btn {
+  background-color: #dc3545;
+  color: #fff;
+  border: none;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-right: 0px;
+  margin-left: auto;
+}
+.accordion-delete-btn:hover {
+  background-color: #c82333;
+}
+#addLayerButton {
+  background-color: #28a745;
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-top: 10px; /* Agregar un espacio de separación desde arriba */
+}
+#addLayerButton:hover {
+  background-color: #218838;
+}
+/*POINTS*/
+.point-menu {
+  position: absolute; /* Coloca el menú en una posición absoluta en relación con su contenedor principal */
+  top: 10px; /* Ajusta la distancia desde la parte superior del contenedor principal */
+  left: 30%; /* Ajusta la distancia desde la parte izquierda del contenedor principal */
+  
+  background-color: rgba(255, 255, 255, 0.8); /* Color de fondo con opacidad */
+  border: 1px solid #ccc; /* Borde del menú */
+  padding: 10px; /* Espaciado interno del menú */
+  z-index: 1000; /* Z-index para asegurarse de que el menú aparezca sobre otros elementos */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Sombra suave */
+}
+.point-container {
+  display: flex;
+  align-items: center;
+  padding: 5px;
+  cursor: pointer;
+}
+.point-container:hover {
+  background-color: #ccc;
+}
+.point-container-highlighted{
+  background-color: #ccc;
+}
+.point-icon {
+  margin-right: 5px;
+  color: #e74c3c;
+}
+.point-label {
+  font-size: 14px;
+}
+/*PROPERTIES*/
+.popup {
+  position: relative;
+  background-color: #fff;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  width: auto;
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.popup h2 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.popup table.property-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.popup table.property-table td {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+}
+
+.popup .footer {
+  margin-top: 10px;
+  border-top: 1px solid #ccc;
+  padding-top: 5px;
+  font-style: italic;
+  font-size: 12px;
+}
+
+.popup::before {
+  content: '';
+  position: absolute;
+  top: -20px; /* Ajusta la posición vertical según sea necesario */
+  left: calc(50% - 10px); /* Ajusta la posición horizontal según sea necesario */
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid #fff; /* Color del triángulo */
+}
+
+.popup::before {
+  content: '';
+  position: absolute;
+  top: -16px;
+  left: calc(50% - 8px);
+  border-width: 8px;
+  border-style: solid;
+  border-color: transparent transparent #fff transparent;
+}
+.popup img {
+  max-width: 100%; 
+  height: auto; 
+  display: block; 
+  margin: 0 auto; 
+}
