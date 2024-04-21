@@ -17,7 +17,7 @@ services:
       - ./sql/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: olive3Dan@pg
       POSTGRES_DB: geo_data
     ports:
       - "5433:5432"

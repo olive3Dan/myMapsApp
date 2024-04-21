@@ -23,7 +23,7 @@ const pool = new Pool({
   host: 'localhost',
   database: 'geo_data',
   password: 'olive3Dan@pg',
-  port: '5432',
+  port: '5433',
 });
 /*
 const pool = new Pool({
