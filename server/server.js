@@ -20,10 +20,10 @@ app.listen(port, () => {
 app.use(cors());
 const pool = new Pool({
   user: 'postgres',
-  host: 'localhost',
+  host: 'database',
   database: 'geo_data',
   password: 'olive3Dan@pg',
-  port: '5433',
+  port: '5432',
 });
 /*
 const pool = new Pool({
