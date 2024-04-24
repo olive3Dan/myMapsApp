@@ -20,20 +20,12 @@ app.listen(port, () => {
 app.use(cors());
 const pool = new Pool({
   user: 'postgres',
-  host: 'database',
+  host: 'localhost',//database se for pelo docker
   database: 'geo_data',
   password: 'olive3Dan@pg',
   port: '5432',
 });
-/*
-const pool = new Pool({
-  user: 'postgres',
-  host: 'database',
-  database: 'geo_data',
-  password: 'password',
-  port: '5432',
-});
-*/
+
 connectToDatabase();
 
 //GROUPS

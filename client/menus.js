@@ -216,20 +216,16 @@ export function createLayersMenu(){
         ], 'Add Layer', async function (event){
             event.preventDefault();
             let layer_name = document.getElementById('addLayer').value;
-            try{
-                await addLayer(layer_name);
-                document.getElementById('addLayerFormContainer').remove();
-            }catch(error){
-                console.error(error);
-            }
+            await addLayer(layer_name);
+            document.getElementById('addLayerFormContainer').remove();
         });
     });
     
     const layerSelectorDiv = document.createElement("div");
     layerSelectorDiv.id = "layer_selector";
-
     container.appendChild(addLayerButton);
     container.appendChild(layerSelectorDiv);
+    console.log("layer menu added");
 }
 export function selectLayerSelectorItem(accordion_item){
     document.querySelectorAll('.accordion-item').forEach(item => {
@@ -324,7 +320,7 @@ export function changeLayerClickSelectBehavior(element) {
     });
 }
 export function unloadLayerSelectorItems(){
-    const layerSelectorContainer = document.getElementById('layerSelectorContainer');
+    const layerSelectorContainer = document.getElementById('layer_selector');
     if(!layerSelectorContainer) return;
     while (layerSelectorContainer.firstChild) {
         layerSelectorContainer.removeChild(layerSelectorContainer.firstChild);

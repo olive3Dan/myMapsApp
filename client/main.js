@@ -56,21 +56,14 @@ export function setCurrentLayer(layer_id){
 
 //USERS
 export function newUserSession(user){
-    try{
-        window.sessionStorage.clear();
-        window.sessionStorage.setItem("active_user", JSON.stringify(user));
-        document.getElementById("currentUserDisplay").innerText = user.name;
-    }catch(error){
-        throw error;
-    }  
+    window.sessionStorage.clear();
+    window.sessionStorage.setItem("active_user", JSON.stringify(user));
+    document.getElementById("currentUserDisplay").innerText = user.name;
+   
 }
 export function endCurrentSession(){
-   try{
     window.sessionStorage.clear();
     document.getElementById("currentUserDisplay").innerText = "No User";  
-   }catch(error){
-      throw error;  
-   }   
 }
 export function getCurrentUser(){
     try{
@@ -94,12 +87,8 @@ export function logoutCurrentUser(){
     }     
 }
 export async function addUser(name, password){
-    try{
-        let user = await addUserToDatabase(name, password);
-        await loginUser(user.name, user.password);
-    }catch(error){
-        throw error;
-    }  
+    let user = await addUserToDatabase(name, password);
+    await loginUser(user.name, user.password);
 }
 export function editUser(){
 }
@@ -123,6 +112,7 @@ export async function loadProjects(user_id){
         addProjectSelectorOption(project);
     });
     await loadLayers(getCurrentProject());
+    console.log(`projects from ${user_id} loaded`);
 }
 export function unloadProjects(){
     let project_menu = document.getElementById("project_menu");
