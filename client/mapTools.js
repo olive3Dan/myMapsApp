@@ -12,7 +12,7 @@ import {fromLonLat, toLonLat} from 'ol/proj';
 import { Overlay } from 'ol';
 import {isSelected, addPoint, getSelectedPoints, unselectPoints, selectPoint} from './main.js';
 import { createEditPointButton, createPropertyTable,findPropertyInObject } from './menus.js';
-import { createForm, createButton, createElementWithAttributes } from './popUpForms.js';
+import { createForm, createButton, createElementWithAttributes } from './formUtils.js';
 //MISC
 export function stringifyCoordinates(coordinates) {
     const [x, y] = coordinates;
@@ -55,7 +55,7 @@ const project_group = new LayerGroup({
 });
 const default_point_style_data = {
    normal: {img:"./icons/red-dot.png", scale: 1, text:"12px sans-serif"},
-   highlighted:{img:"./icons/yellow-dot.png", scale: 2, font:"14px sans-serif"}
+   highlighted:{img:"./icons/yellow-dot.png", scale: 1.5, font:"14px sans-serif"}
 }
 let adding_point_mode = false;
 

@@ -1,16 +1,17 @@
 import './style.css';
-import { unloadProjects, loadProjects, loadLayers, loginUser, addLayer, addProperty,  } from './main.js';
-import { createUsersMenu, createMapToolsMenu, createPropertyMenu, createStylesMenu } from './menus';
+import { loadLayers, addLayer, addProperty  } from './main.js';
+import { createLayersMenu, createMapToolsMenu, createPropertyMenu, createStylesMenu } from './menus';
 import { newMap} from './mapTools';
+import {users} from './users.js';
+import {projects} from './projects.js'
 
 //USERS
 document.addEventListener('DOMContentLoaded', async() => {
   newMap();
-  createUsersMenu();
-  await loginUser("Daniel", "daniel");
+  users.menu.create();
+  await users.login("Daniel", "daniel");
+  projects.menu.create();
   createMapToolsMenu();
-  createPropertyMenu();
-  createStylesMenu();
 });
 
 

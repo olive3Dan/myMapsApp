@@ -1,15 +1,8 @@
-import {createForm, newPopUpMessage, addOptionsToSelect, createButton} from './popUpForms.js';
+import {createForm, newPopUpMessage, addOptionsToSelect, createButton, createElementWithAttributes} from './formUtils.js';
 import {
     getCurrentLayer,
     setCurrentLayer,
     loadLayers, 
-    loginUser, 
-    addUser, 
-    logoutCurrentUser,
-    deleteCurrentUser,
-    getCurrentUser,
-    addProject,
-    deleteProject,
     addLayer,
     selectLayer,
     selectPoint,
@@ -19,7 +12,7 @@ import {
     getSelectedPoints,
     setSelectedPoints,
     deletePoint,
-    getCurrentProject,
+    
     addProperty,
     deleteProperty,
     editPoint,
@@ -30,7 +23,8 @@ import { addPointModeOn,
     isCtrlPressed,
     stringToCoordinates
 } from './mapTools';
-import { loadFromDatabase } from './dbAccess.js';
+import { database } from './databaseUtils.js';
+import {projects} from './projects.js';
 
 
 //HTML MISC TOOLS
@@ -45,172 +39,11 @@ export function findPropertyInObject(obj, target_property_name) {
     return null;
   }
 
-//USERS
-export function createUsersMenu(){
-    const usersMenuContainer = document.getElementById('usersMenuContainer');
-    usersMenuContainer.innerHTML = '';
-
-    const currentUserDisplay = document.createElement('div');
-    currentUserDisplay.id = 'currentUserDisplay';
-    currentUserDisplay.innerText = "No user Logged In"
-    const addUserButton = createButton('Sign Up', 'addUserButton', ["fa-user-plus"],() => {
-        createForm('addUserFormContainer', 'addUserForm', 'Add a New User', [
-            { type: 'text', id: 'addName', placeholder: 'Name', autocomplete: 'username' },
-            { type: 'password', id: 'addPassword', placeholder: 'Password', autocomplete: 'new-password' }
-        ], 'Add User', async function (event){
-            event.preventDefault();
-            let name = document.getElementById('addName').value;
-            let password = document.getElementById('addPassword').value;
-            try{
-                await addUser(name, password);
-                document.getElementById('addUserFormContainer').remove();
-                newPopUpMessage("Utilizador adiconado com sucesso!", "success");
-            }catch(error){
-                console.error(error);
-                newPopUpMessage(error.message, "error");
-            }
-        });
-    });
-    const loginUserButton = createButton('Login', 'loginUserButton', ['fa-sign-in-alt'], () => {
-        createForm('loginUserFormContainer', 'loginUserForm', 'Log In', [
-            { type: 'text', id: 'userName', placeholder: 'user name', autocomplete: 'username' },
-            { type: 'password', id: 'userPassword', placeholder: 'password', autocomplete: 'new-password' }
-        ], 'Log In', async function (event){
-            event.preventDefault();
-            let name = document.getElementById('userName').value;
-            let password = document.getElementById('userPassword').value;
-            try{
-                await loginUser(name, password);
-                document.getElementById('loginUserFormContainer').remove();
-                newPopUpMessage("Bem vindo!", "success");
-            }catch(error){
-                console.error(error);
-                newPopUpMessage(error.message, "error");
-            }
-        });    
-    });
-    const editUserButton = createButton('Edit User', 'editUserButton', ['fa-user-edit'] ,() => {   
-        /*editar utilizador */  
-    });
-    const deleteUserButton = createButton('Delete Account', 'deleteUserButton', ['fa-trash-alt'], () => {    
-        createForm('deleteUserFormContainer', 'deleteUserForm', 'Delete Account?', null, 'Yes, Delete', async function (event){
-            event.preventDefault();
-            try{
-                await deleteCurrentUser();
-                document.getElementById('deleteUserFormContainer').remove();
-                newPopUpMessage("Utilizador removido com sucesso!", "success");
-            }catch(error){
-                console.error(error);
-                newPopUpMessage(error.message, "error");
-            }
-        });    
-    });
-    const signoutButton = createButton('Log Out', 'logoutButton', ['fa-sign-out-alt'], () => {
-        createForm('logOutUserFormContainer', 'logOutUserForm', 'Log Out ?', null, 'Yes, Log Out', function (event){
-            event.preventDefault();
-            try{
-                getCurrentUser();
-                logoutCurrentUser();
-                document.getElementById('logOutUserFormContainer').remove();
-                newPopUpMessage("Sessão terminada com sucesso!", "success");
-            }catch(error){
-                console.error(error);
-                newPopUpMessage(error.message, "error");
-            }
-        });     
-    });
-    usersMenuContainer.appendChild(currentUserDisplay);
-    usersMenuContainer.appendChild(addUserButton);
-    usersMenuContainer.appendChild(loginUserButton);
-    usersMenuContainer.appendChild(editUserButton);
-    usersMenuContainer.appendChild(deleteUserButton);
-    usersMenuContainer.appendChild(signoutButton);
-}
-
-//PROJECTS
-export function createProjectsMenu() {
-    let project_menu = document.getElementById("project_menu");
-    
-    let projectSelector = document.createElement("select");
-    projectSelector.id = "projectSelector";
-    
-    let loadProjectButton = createButton("Load Project", "loadProjectButton", ['fa-folder-open'],  async () => {
-        let project_id = getCurrentProject();
-        await loadLayers(project_id);
-    });
-    let newProjectButton = createButton("New Project", "newProjectButton", ['fa-folder-plus'],  () => {
-        createForm("addProjectFormContainer", "addProjectForm", "Add Project", [ 
-            { type: 'text', id: 'addProject', placeholder: 'project name', autocomplete: 'project name' }
-        ],"Add Project", async function(event){
-            event.preventDefault();
-            let name = document.getElementById('addProject').value;
-            try{
-                await addProject(name);
-                document.getElementById('addProjectFormContainer').remove();
-            }catch(error){
-                console.error(error);
-                newPopUpMessage(error.message, "error");
-            }
-        })
-    });
-    let deleteProjectButton = createButton("Delete Project", "deleteProjectButton", ['fa-trash-alt'], () => {
-        let project_id = getCurrentProject();
-        if(!project_id) return;
-        createForm('deleteProjectFormContainer', 'deleteProjectForm', 'Delete Project?', null, 'Yes, Delete', async function (event){
-            event.preventDefault();
-            try{
-                await deleteProject(project_id);
-                document.getElementById('deleteProjectFormContainer').remove();
-            }catch(error){
-                console.error(error);
-                newPopUpMessage(error.message, "error");
-            }
-        });    
-    });
-    let shareProjectButton = createButton("Share Project", "shareProjectButton", ['fa-share-alt'], () => {});
-    project_menu.appendChild(projectSelector);
-    project_menu.appendChild(loadProjectButton);
-    project_menu.appendChild(newProjectButton);
-    project_menu.appendChild(deleteProjectButton);
-    project_menu.appendChild(shareProjectButton);
-}
-export function addProjectSelectorOption(project){
-    if (!project) {
-        throw new Error('Invalid Project');
-    }
-    let select = document.getElementById("projectSelector");
-    if (!select) {
-        throw new Error('Project selector not found');
-    }
-    let option = document.createElement('option');
-    option.value = project.id;
-    option.text = project.name;
-    select.appendChild(option);
-}  
-export function deleteProjectSelectorOption(project_id){
-    try{
-        if (!project_id) {
-            throw new Error('Invalid project id');
-        }
-        let select = document.getElementById("projectSelector");
-        if (!select) {
-            throw new Error('Project selector not found');
-        }
-        let option = select.querySelector(`option[value='${project_id}']`);
-        if(!option){
-            throw new Error('Selector option not found');
-        }
-        select.removeChild(option);
-    }catch(error){
-        throw error;
-    }
-    
-}
 
 //LAYERS
 export function createLayersMenu(){
-    const container = document.getElementById("layerSelectorContainer");
-    const addLayerButton = createButton("Add Layer", "addLayerButton", ["fas", "fa-plus", "fa-layer-group"], () => {
+    const layers_container = createElementWithAttributes('div', {id:'layers-container', innerHTML:'Layers'});
+    const addLayerButton = createButton("Add Layer", "addLayerButton", ["fas", "fa-plus", "fa-layer-group"],["formButton"], () => {
         createForm('addLayerFormContainer', 'addLayerForm', 'Add a New Layer', [
             { type: 'text', id: 'addLayer', placeholder: 'Layer', autocomplete: 'layer name' }
         ], 'Add Layer', async function (event){
@@ -220,12 +53,15 @@ export function createLayersMenu(){
             document.getElementById('addLayerFormContainer').remove();
         });
     });
-    
-    const layerSelectorDiv = document.createElement("div");
-    layerSelectorDiv.id = "layer_selector";
-    container.appendChild(addLayerButton);
-    container.appendChild(layerSelectorDiv);
-    console.log("layer menu added");
+    //const layer_selector = createElementWithAttributes('div', {id:"layer-selector"});
+    layers_container.append(addLayerButton); 
+    document.body.append(layers_container);   
+}
+export function removeLayersMenu(){
+    const layers_container = document.getElementById("layers-container");
+    if (!layers_container) return;
+    layers_container.remove();
+    console.group("LAYERS CONTAINER REMOVED");
 }
 export function selectLayerSelectorItem(accordion_item){
     document.querySelectorAll('.accordion-item').forEach(item => {
@@ -234,46 +70,31 @@ export function selectLayerSelectorItem(accordion_item){
     accordion_item.classList.add('highlighted');
 }
 export function addLayerSelectorItem(layer) {
-    const layerSelectorDiv = document.getElementById('layerSelectorContainer');
-
-    const accordionItemDiv = document.createElement('div');
-    accordionItemDiv.classList.add('accordion-item');
-    accordionItemDiv.id = "layer-" + layer.id;
-
-    accordionItemDiv.addEventListener('click', () => {
+    const layer_container = document.getElementById('layers-container');
+    const accordion_item = createElementWithAttributes('div', {id:`layer-${layer.id}`, class:'accordion-item'});
+    accordion_item.addEventListener('click', () => {
         selectLayer(layer.id);    
     });
     
-    const accordionHeaderDiv = document.createElement('div');
-    accordionHeaderDiv.classList.add('accordion-header');
-    accordionHeaderDiv.classList.add('show');
-    changeLayerClickSelectBehavior(accordionHeaderDiv);
-
-    const accordionButtonsDiv = document.createElement('div');
-    accordionButtonsDiv.classList.add('accordion-buttons'); 
-
-    const checkboxInput = document.createElement('input');
-    checkboxInput.type = 'checkbox';
-    checkboxInput.id = "layer-checkbox-" + layer.id;
-    checkboxInput.classList.add('accordion-title');
-
-    const labelForCheckbox = document.createElement('label');
-    labelForCheckbox.htmlFor = layer.id;
-    labelForCheckbox.classList.add('accordion-label');
-    labelForCheckbox.textContent = layer.name;
-
-    const editButton = createButton('', '', ['fa-edit'], () => {});
+    const accordion_header = createElementWithAttributes('div', {class:'accordion-header'});
+    accordion_header.classList.add('show');
+    changeLayerClickSelectBehavior(accordion_header);
+    const accordion_buttons_container = createElementWithAttributes('div', {id: 'accordion-buttons-container', class:'accordion-buttons'});
+    const checkbox = createElementWithAttributes('input', {type:'checkbox', id:`layer-checkbox-${layer.id}`, class:'accordion-title'});
+    const checkbox_label = createElementWithAttributes('label', {htmlFor: layer.id, class:'accordion-label', textContent: layer.name});
+    
+    const editButton = createButton('', '', ['fa-edit'],["formButton"], () => {});
     editButton.classList.add('accordion-edit-btn');
     //accordionButtonsDiv.appendChild(editButton);
 
-    const deleteButton = createButton('', '', ['fa-trash'], () => {
-        createForm('deleteLayerFormContainer', 'deleteLayerForm', 'Delete Layer?', null, 'Yes, Delete', 
+    const deleteButton = createButton('', '', ['fa-trash'],["formButton"], () => {
+        createForm('delete-layer-form-container', 'deleteLayerForm', 'Delete Layer?', null, 'Yes, Delete', 
         async function (event){
             event.preventDefault();
             try{
                 await deleteLayer(layer.id);
                 setCurrentLayer(null);
-                document.getElementById('deleteLayerFormContainer').remove();
+                document.getElementById('delete-layer-form-container').remove();
             }catch(error){
                 console.error(error);
                 newPopUpMessage(error.message, "error");
@@ -281,26 +102,19 @@ export function addLayerSelectorItem(layer) {
         });     
     });
     deleteButton.classList.add('accordion-delete-btn');
-    accordionButtonsDiv.appendChild(deleteButton);
-
-    const accordionContentDiv = document.createElement('div');
-    accordionContentDiv.id = "layer-content-" + layer.id;
-    accordionContentDiv.classList.add('accordion-content');
-
-    accordionHeaderDiv.appendChild(checkboxInput);
-    accordionHeaderDiv.appendChild(labelForCheckbox);
-    accordionHeaderDiv.appendChild(accordionButtonsDiv); 
-    accordionItemDiv.appendChild(accordionHeaderDiv);
-    accordionItemDiv.appendChild(accordionContentDiv);
-    layerSelectorDiv.appendChild(accordionItemDiv);
+    accordion_buttons_container.appendChild(deleteButton);
+    const accordion_content = createElementWithAttributes('div', {id: `layer-content-${layer.id}`, class:'accordion-content'});
+    accordion_header.append(checkbox, checkbox_label, accordion_buttons_container);
+    accordion_item.append(accordion_header, accordion_content);
+    layer_container.append(accordion_item);
 }
-export function deleteLayerSelectorItem(id){
+export function deleteLayerSelectorItem(layer_id){
     
-    const layerSelectorDiv = document.getElementById('layer_selector');
-    const accordionItemDiv = document.getElementById('layer-' + id);
-
-    if (accordionItemDiv) {
-        layerSelectorDiv.removeChild(accordionItemDiv);
+    const layer_container = document.getElementById('layers-container');
+    const accordion_item = document.getElementById('layer-' + layer_id);
+    console.log(layer_id);
+    if (accordion_item) {
+        layer_container.removeChild(accordion_item);
     }
     
 }
@@ -320,11 +134,12 @@ export function changeLayerClickSelectBehavior(element) {
     });
 }
 export function unloadLayerSelectorItems(){
-    const layerSelectorContainer = document.getElementById('layer_selector');
-    if(!layerSelectorContainer) return;
-    while (layerSelectorContainer.firstChild) {
-        layerSelectorContainer.removeChild(layerSelectorContainer.firstChild);
-    }
+    /*
+    const layer_container = document.getElementById('layer-selector');
+    if(!layer_container) return;
+    while (layer_container.firstChild) {
+        layer_container.removeChild(layer_container.firstChild);
+    }*/
 }
 
 //FEATURES - POINTS
@@ -341,10 +156,10 @@ export function unselectPointSelectorItem(point_id){
 export function createMapToolsMenu() {
     const pointMenu = document.getElementById("point-menu-container");
     pointMenu.classList.add("point-menu");
-    const addButton = createButton("Add Point", "add-point-button", ["fa-plus", "fa-map-pin"], () => {
+    const addButton = createButton("Add Point", "add-point-button", ["fa-plus", "fa-map-pin"],["formButton"], () => {
         addPointModeOn(true);
     });
-    const measureButton = createButton("Measure Distance", "measure-button", ["fa-ruler"], () => {
+    const measureButton = createButton("Measure Distance", "measure-button", ["fa-ruler"],["formButton"], () => {
       
     });
     pointMenu.appendChild(addButton);
@@ -507,7 +322,7 @@ export function createEditPointButton(point){
 
 // PROPERTIES
 function createAddSPropertyForm(){
-    let project_id = getCurrentProject();
+    let project_id = projects.getCurrent();
     if(!project_id) return;
     createForm('addPropertyFormContainer', 'addPropertyForm', 'Add a New Property', [
         { type: 'text', id: 'property_name', placeholder: 'Property Name', autocomplete: 'property name' },
@@ -533,9 +348,9 @@ function createAddSPropertyForm(){
     });    
 }
 async function createDeletePropertyForm(){
-    let project_id = getCurrentProject();
+    let project_id = projects.getCurrent();
     if(!project_id) return;
-    let project_properties = await loadFromDatabase("Project Properties", `project_properties/${project_id}`);
+    let project_properties = await database.load("Project Properties", `project_properties/${project_id}`);
     if(!project_properties) throw new Error("not able to load project properties");
     const properties_options = project_properties.map(item => ({
         value: item.id,
@@ -557,10 +372,10 @@ async function createDeletePropertyForm(){
 }
 export function createPropertyMenu() {
    const property_menu = document.getElementById("properties_menu");
-    const addPropertyButton = createButton("Add Property", "add-property-button", ["fa-plus"], () => {
+    const addPropertyButton = createButton("Add Property", "add-property-button", ["fa-plus"],["formButton"], () => {
        createAddSPropertyForm(); 
     });
-    const deletePropertyButton = createButton("Delete Property", "delete-property-button", ["fa-trash"], async () => {
+    const deletePropertyButton = createButton("Delete Property", "delete-property-button", ["fa-trash"],["formButton"], async () => {
        createDeletePropertyForm();
     });
     property_menu.appendChild(addPropertyButton);
@@ -568,9 +383,9 @@ export function createPropertyMenu() {
 }
 //STYLES
 async function createAddStyleForm(){
-    let project_id = getCurrentProject();
+    let project_id = projects.getCurrent();
     if (!project_id) return;
-    let project_properties = await loadFromDatabase("Project Properties", `project_properties/${getCurrentProject()}`);
+    let project_properties = await loadFromDatabase("Project Properties", `project_properties/${projects.getCurrent()}`);
     if(!project_properties) throw new Error("not able to load project properties");
     const properties_select_options = project_properties.map(property => ({value: property.id, text: property.name}));
     createForm('addStyleFormContainer', 'addStyleForm', 'Add a New Style', [
@@ -607,7 +422,7 @@ async function createAddStyleForm(){
                             "scale": ${style_normal_scale + 1},
                             "font" : "${style_normal_font}"
                         }}`,
-                project_id: getCurrentProject(),
+                project_id: projects.getCurrent(),
                 priority:1
             }
             await addStyleRule(new_style);
@@ -635,10 +450,10 @@ async function createAddStyleForm(){
 }
 export function createStylesMenu(){
     const styles_menu = document.getElementById("styles_menu");
-    const addStyleButton = createButton("Add Style", "add-Style-button", ["fa-plus"], async () => {
+    const addStyleButton = createButton("Add Style", "add-Style-button", ["fa-plus"],["formButton"], async () => {
         await createAddStyleForm()
     });
-    const deleteStyleButton = createButton("Delete Style", "delete-Style-button", ["fa-trash"], async () => {
+    const deleteStyleButton = createButton("Delete Style", "delete-Style-button", ["fa-trash"],["formButton"], async () => {
        
     });
     styles_menu.appendChild(addStyleButton);

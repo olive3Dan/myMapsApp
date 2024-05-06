@@ -8,6 +8,7 @@ body {
   height: 100vh;
   width:100%;
   overflow: hidden;
+  font-family:Verdana, Geneva, Tahoma, sans-serif;
 }
 
 #map {
@@ -39,7 +40,7 @@ body {
   position: fixed;
   top: 10px;
   right: 10px;
-  background: rgba(181, 181, 181, 0.8);
+  background: rgba(226, 226, 226, 0.8);
   padding: 15px;
   border-radius: 10px;
   box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
@@ -66,12 +67,12 @@ body {
   background: #0056b3;
 }
 
-#signoutButton {
+#logoutButton {
   margin-top: 20px;
   background: #ff0000;
 }
 
-#signoutButton:hover {
+#logoutButton:hover {
   background: #b30000;
 }
 /* Usuario actual */
@@ -80,6 +81,84 @@ body {
   font-weight: bold;
   color: #333;
   margin-bottom: 10px;
+}
+/*PROJECTS*/
+#project-container{
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  width:250px;
+  background: rgba(220, 219, 219, 0.8);
+  padding: 15px;
+  border-radius: 0px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1000; 
+}
+#projectLabelContainer {
+  width:250px;
+  
+}
+
+#project-label {
+  display: inline-block;
+  font-size: 34px;
+  color: #333;
+}
+
+.project-description {
+  font-size: 16px;
+  font-style: italic;
+  color: #666;
+}
+
+.context-menu-button {
+  position: relative; 
+  right: 10px;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 30px;
+  color: #333;
+}
+.context-menu-button:hover{
+  background-color: #f0f0f0;
+}
+  
+/*CONTEXT MENU*/
+.context-menu {
+  position: fixed;
+  background: rgba(220, 219, 219, 0.8);
+  border-radius: 0px;
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction:column;
+  align-items: flex-start;
+  z-index: 1000;
+  width:200px;
+}
+.context-menu-item {
+  cursor: pointer;
+  width: 195px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left:5px;
+  
+}
+.context-menu-item:hover {
+  background-color: #f0f0f0;
+}
+/*LAYERS */
+#layers-container{
+  position: fixed;
+  top: 300px;
+  left: 10px;
+  width:250px;
+  
+  background: rgba(220, 219, 219, 0.8);
+  
+  border-radius: 0px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1000; 
 }
 /* popUpForms */
 .popupForm {
@@ -104,7 +183,7 @@ body {
 .popupForm button {
   margin: 10px 0;
   padding: 10px;
-  border: none;
+  border: 20px;
   border-radius: 5px;
   background: #007BFF;
   color: white;
@@ -136,7 +215,7 @@ body {
   align-items: center;
   justify-content: center;
 }
-.formInput {
+.popupForm input {
   margin: 10px 0;
   padding: 5px;
   width: 80%;
@@ -147,18 +226,19 @@ body {
 .formButton {
   margin: 5px;
   padding: 10px;
-  border: none;
+  border: 10px;
   border-radius: 5px;
   background: #007BFF;
   color: white;
   cursor: pointer;
   text-decoration: none;
-  /*display: inline-block;*/
+  display: inline-block;
   text-align: center;
 }
 .formButton:hover {
   background: #0056b3;
 }
+
 .errorLabel {
   color: red;
   margin-top: 10px;
@@ -178,30 +258,8 @@ body {
   /* Agrega estilos de hover aquí si lo deseas */
 }
 
-/*SIDEBAR*/
-#project_menu button {
-  margin-top: 10px;
-  padding: 10px;
-  border: none;
-  background-color: #007BFF;
-  color: #fff;
-  cursor: pointer;
-  text-decoration: none;
-  border-radius: 5px;
-  display: block;
-  overflow-y: auto;
-}
-#project_menu button:hover {
-  background-color: #0056b3;
-}
-.sidebar {
-  width: auto;
-  background-color: #ffffff;
-  box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.05);
-  padding: 20px;
-  /* Set a height so that the sidebar stretches along the map */
-  height: 100%;
-}
+
+
 /*LAYERS ACCORDION*/
 .accordion {
   width: 100%;
@@ -215,7 +273,8 @@ body {
   cursor: pointer;
 }
 .accordion-item:hover {
-  border-left-color: gray;
+  border-left-color: rgb(237, 236, 236);
+  background-color: #f0f0f0;
 }
 .accordion-item.highlighted {
   border-left-color: #007BFF;

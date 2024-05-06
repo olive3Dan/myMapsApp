@@ -1,10 +1,20 @@
+//1. AUTENTICAR OS UTILIZADORES PELO EMAIL
+//2. sql iNJECTION PREVENTION
+//3. REVIEW ERROR HANDLING with express-validator
+//4. Consider using HTTPS to protect the token during transmission.
+//5. Error Handling improvments
+//6. É NECESSÁRIO VERIFICAR SE O UTILIZADOR JÁ EXISTE NA BASE DE DADOS!!!
+//7. testar os parametros que entram nas funçções
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+const bcript = require("bcrypt");
+const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
+require('dotenv').config();
 const app = express();
-const MAX_RETRIES = 10;
-const RETRY_INTERVAL = 2000; // milliseconds
+
+
 
 let retryCount = 0;
 app.use(bodyParser.json());
@@ -20,13 +30,29 @@ app.listen(port, () => {
 app.use(cors());
 const pool = new Pool({
   user: 'postgres',
-  host: 'localhost',//database se for pelo docker
+  host: 'localhost',//database se for
   database: 'geo_data',
   password: 'olive3Dan@pg',
   port: '5432',
 });
-
+const MAX_RETRIES = 10;
+const RETRY_INTERVAL = 2000; // milliseconds
 connectToDatabase();
+
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) {
+    return res.sendStatus(401); // Unauthorized
+  }
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.sendStatus(403); // Forbidden
+    }
+    req.user = user; 
+    next(); 
+  });
+};
 
 //GROUPS
 app.get("/groups", async (req, res) => {
@@ -93,19 +119,24 @@ app.get("/users", async (req, res) => {
     res.status(500).json({ error: "Internal server error in user get" });
   }
 });
-app.post("/get_user", async (req, res) => {
+app.post("/login", async (req, res) => {
   try {
-    const result = await pool.query(
-      "SELECT * FROM users WHERE name = $1 AND password = $2;", 
-      [req.body.name, req.body.password]
-    );
+    const {name, password} =  req.body;
+    const result = await pool.query("SELECT * FROM users WHERE name = $1;", [name]);
     if (result.rowCount === 0) {
-      console.log(`USER ${req.body.name} NOT FOUND`);
-      res.status(404).send(`USER ${req.body.name} NOT FOUND`);
-    } else {
-      console.log(`USER ${req.body.name} SUCCESSFULLY FOUND`);
-      res.status(200).json(result.rows[0]);
+      console.log(`USER ${name} NOT FOUND`);
+      return res.status(404).send(`USER ${name} NOT FOUND`);
+    } 
+    const user = result.rows[0];
+    const passwordsMatch = await comparePasswords(password, user.password);
+    if(!passwordsMatch){
+      console.log(`PASSWORD DOES NOT MATCH FOR USER ${name}`);
+      return res.status(401).send("Invalid credentials");
     }
+    const token = jwt.sign(user, process.env.JWT_SECRET,{expiresIn: '1h'});
+    console.log(`USER ${user.name} SUCCESSFULLY FOUND`);
+    res.status(200).json(token);
+    
   } catch (error) {
     console.error(error);
     res.status(500).send("Internal server error in get_user");
@@ -113,9 +144,11 @@ app.post("/get_user", async (req, res) => {
 });
 app.post("/add_user", async (req, res) => {
   try {
+    const hashedPassword = await hashPassword(req.body.password);
+    console.log(hashedPassword);
     const result = await pool.query(
       'INSERT INTO users (name, password, group_id) VALUES($1, $2, $3) RETURNING *',
-      [req.body.name, req.body.password, req.body.group_id]
+      [req.body.name, hashedPassword, req.body.group_id]
     );
     console.log(result.rows[0]);
     res.status(201).json(result.rows[0]);
@@ -125,11 +158,12 @@ app.post("/add_user", async (req, res) => {
     res.status(500).json({ error: "Internal server error in user post" });
   }
 });
-app.put("/update_user/:id", async (req, res) => {
+app.put("/update_user/:id",authenticateToken, async (req, res) => {
   try {
+    const hashedPassword = await hashPassword(req.body.password);
     const result = await pool.query(
       "UPDATE users SET name = $1, password = $2, group_id = $3 WHERE id = $4 RETURNING *;",
-      [req.body.name, req.body.password, req.body.group_id, req.params.id]
+      [req.body.name, hashedPassword, req.body.group_id, req.params.id]
     );
     console.log("USER UPDATE: ");
     console.log(result.rows[0]);
@@ -139,7 +173,7 @@ app.put("/update_user/:id", async (req, res) => {
     res.status(500).json({ error: "Internal server error in user put" });
   }
 });
-app.delete("/delete_user/:id", async (req, res) => {
+app.delete("/delete_user/:id",authenticateToken, async (req, res) => {
   try {
     const result = await pool.query("DELETE FROM users WHERE id = $1;", [
       req.params.id,
@@ -158,17 +192,16 @@ app.delete("/delete_user/:id", async (req, res) => {
 });
 
 //PROJECTS
-app.get("/projects/:user_id", async (req, res) => {
+app.get("/projects/:user_id", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT * FROM projects
        INNER JOIN projects_users ON projects.id = projects_users.project_id
        WHERE projects_users.user_id = $1`,
-    [req.params.user_id]
-    );
+    [req.params.user_id]);
     if (result.rowCount === 0) {
-      console.log(`USER ${req.params.user_id} NOT FOUND IN GET PROJECTS`);
-      res.status(404).send(`USER ${req.params.user_id} NOT FOUND`);
+      console.log(`USER ${req.params.user_id} HAS NO PROJECTS`);
+      res.status(404).send(`USER ${req.params.user_id} HAS NO PROJECTS`);
     } else {
       res.status(200).json(result.rows);
     }
@@ -177,7 +210,7 @@ app.get("/projects/:user_id", async (req, res) => {
     res.status(500).json({ error: "Internal server error in projects get" });
   }
 });
-app.post("/add_project", async (req, res) => {
+app.post("/add_project",authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       'INSERT INTO projects (name) VALUES($1) RETURNING *',
@@ -188,24 +221,29 @@ app.post("/add_project", async (req, res) => {
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error in user post" });
+    res.status(500).json({ error: "Internal server error in add_project" });
   }
 });
-app.put("/update_project/:id", async (req, res) => {
+app.put("/update_project/:id", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       "UPDATE projects SET name = $1 WHERE id = $2 RETURNING *;",
       [req.body.name, req.params.id]
     );
-    console.log("PROJECT UPDATE: ");
-    console.log(result.rows[0]);
-    res.status(200).json(result.rows[0]);
+    if (result.rowCount === 0) {
+      console.log(`PROJECT ${req.params.id} NOT FOUND`);
+      res.status(404).send(`PROJECT ${req.params.id} NOT FOUND`);
+    } else {
+      console.log(`PROJECT UPDATE: ${result.rows[0]}`);
+      res.status(200).json(result.rows[0]);
+    }
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error in project put" });
+    res.status(500).json({ error: "Internal server error in projects UPDATE" });
   }
+  
 });
-app.delete("/delete_project/:id", async (req, res) => {
+app.delete("/delete_project/:id",authenticateToken, async (req, res) => {
   try {
     const result = await pool.query("DELETE FROM projects WHERE id = $1;", [
       req.params.id,
@@ -226,16 +264,25 @@ app.delete("/delete_project/:id", async (req, res) => {
 });
 
 //PROJECTS_USERS
-app.get("/projects_users_associations", async (req, res) => {
+app.get("/projects_users_associations",authenticateToken, async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM projects_users");
-    res.status(200).json(result.rows);
+    if (result.rowCount === 0) {
+      const message = `NO PROJEC USER ASSOCIATION FOUND`;
+      console.log(message);
+      res.status(404).send(message);
+    } else {
+      const message = `PROJECT USERS ASSOCIATIONS FOUND`;
+      console.log(message);
+      res.status(200).json(result.rows);
+    }
+
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error in projects get" });
+    res.status(500).json({ error: "Internal server error in projects_users_associations get" });
   }
 });
-app.post("/associate_project_user", async (req, res) => {
+app.post("/associate_project_user",authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       'INSERT INTO projects_users (project_id, user_id) VALUES($1, $2) RETURNING *',
@@ -249,7 +296,7 @@ app.post("/associate_project_user", async (req, res) => {
     res.status(500).json({ error: "Internal server error in projects_users post" });
   }
 });
-app.delete("/delete_project_user_association/:project_id/:user_id", async (req, res) => {
+app.delete("/delete_project_user_association/:project_id/:user_id",authenticateToken, async (req, res) => {
   try {
     const result = await pool.query("DELETE FROM projects_users WHERE project_id = $1 AND user_id = $2;", [
       req.params.project_id, req.params.user_id
@@ -257,11 +304,11 @@ app.delete("/delete_project_user_association/:project_id/:user_id", async (req, 
     if (result.rowCount === 0) {
       const message = `PROJECT_USER ASSOCIATION ${req.params.project_id}<=>${req.params.user_id} NOT FOUND`;
       console.log(message);
-      res.status(404).send();
+      res.status(404).send(message);
     } else {
       const message = `PROJECT_USER ASSOCIATION ${req.params.project_id}<=>${req.params.user_id} DELETED SUCCESSFULLY`;
       console.log(message);
-      res.status(204).send();
+      res.status(204).send(message);
     }
   } catch (error) {
     console.error(error);
@@ -270,19 +317,27 @@ app.delete("/delete_project_user_association/:project_id/:user_id", async (req, 
 });
 
 //LAYERS
-app.get("/layers/:project_id", async (req, res) => {
+app.get("/layers/:project_id",authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT * FROM layers WHERE project_id = $1",
       [req.params.project_id]
     );
-    res.status(200).json(result.rows);
+    if (result.rowCount === 0) {
+      const message = `NO LAYERS FOUND IN PROJECT${req.params.project_id}`;
+      console.log(message);
+      res.status(404).send(message);
+    } else {
+      const message = `LAYERS OF PROJECT${req.params.project_id} FOUND`;
+      console.log(message);
+      res.status(201).json(result.rows);
+    }   
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal server error in layers get" });
   }
 });
-app.post("/add_layer/:project_id", async (req, res) => {
+app.post("/add_layer/:project_id",authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       'INSERT INTO layers (name, project_id) VALUES($1, $2) RETURNING *',
@@ -296,21 +351,26 @@ app.post("/add_layer/:project_id", async (req, res) => {
     res.status(500).json({ error: "Internal server error in layers post" });
   }
 });
-app.put("/update_layer/:id", async (req, res) => {
+app.put("/update_layer/:id",authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
       "UPDATE layers SET name = $1, project_id = $2 WHERE id = $3 RETURNING *;",
       [req.body.name, req.body.project_id, req.params.id]
     );
-    console.log("LAYER UPDATE: ");
-    console.log(result.rows[0]);
-    res.status(200).json(result.rows[0]);
+    if (result.rowCount === 0) {
+      const message = `NO LAYER FOUND IN ${req.params.project_id}`;
+      console.log(message);
+      res.status(404).send(message);
+    } else {
+      console.log(`LAYER UPDATE: ${console.log(result.rows[0])}`);
+      res.status(200).json(result.rows[0]);
+    }   
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal server error in layer put" });
   }
 });
-app.delete("/delete_layer/:id", async (req, res) => {
+app.delete("/delete_layer/:id",authenticateToken, async (req, res) => {
   try {
     const result = await pool.query("DELETE FROM layers WHERE id = $1;", [
       req.params.id
@@ -719,3 +779,11 @@ function connectToDatabase() {
     }
   });
 }
+const hashPassword = async (password) => {
+  const saltRounds = 10;
+  return await bcript.hash(password, saltRounds);
+};
+const comparePasswords = async (plainPassword, hashedPassword) => {
+  return await bcript.compare(plainPassword, hashedPassword);
+};
+
