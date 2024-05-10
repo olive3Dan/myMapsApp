@@ -347,8 +347,7 @@ export function createMapToolsMenu() {
     const measureButton = createButton("Measure Distance", "measure-button", ["fa-ruler"], () => {
       
     });
-    pointMenu.appendChild(addButton);
-    pointMenu.appendChild(measureButton);
+    pointMenu.append(addButton, measureButton);
 }
 document.addEventListener('keydown', function(event) {
     if (event.key === 'Delete') {
