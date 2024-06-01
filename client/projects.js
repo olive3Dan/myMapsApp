@@ -1,19 +1,28 @@
 //Como implementar a partilha de projetos entre os utilizadores?
-import{users} from './users.js';
-import { loadLayers, unloadLayers, addLayer } from './main';
 import { createElementWithAttributes, createContextMenu, newPopUpMessage, createForm, createButton } from './formUtils.js';
 import {database} from './databaseUtils.js'
-import { createLayersMenu, createPropertyMenu, createStylesMenu, removeLayersMenu } from './menus.js';
+import {properties} from './properties.js'
 export const projects = (function(){
     //private variables and functions
+    let current_user = null;
+    window.eventBus.on('users:loginUser', (event) => {
+        projects.menu.remove();
+        projects.menu.create();
+        current_user = event.user_id; 
+
+    });
+    window.eventBus.on('users:logoutUser', (event) => {
+        
+    });
     let current_project = null;
     let projectContainer = document.getElementById("project-container");
     let projectDescription = createElementWithAttributes("span", {id:"project-description", innerHTML:"no description", class:"project-description"});
     let projectLabel = createElementWithAttributes("div", {innerHTML:"No Project", id:"project-label"});
     const forms = {
         openProject: async () => {
+            console.log("open project");
             let projects_data;
-            projects_data = await projects.load(users.getCurrent().id);
+            projects_data = await projects.load(current_user);
             let project_select_options = [];
             projects_data.forEach(function(project) {
                 project_select_options.push({value: project, text: project.name});
@@ -35,7 +44,7 @@ export const projects = (function(){
                 async function(event){
                     event.preventDefault();
                     let project_name = document.getElementById('addProject').value;
-                    let user_id = users.getCurrent().id;
+                    let user_id = current_user;
                     await projects.add(user_id, project_name);
                     document.getElementById('add-projects-form-container').remove();
                 }
@@ -45,7 +54,7 @@ export const projects = (function(){
             createForm('delete-project-form-container', 'delete-project-form', 'Delete Project?', null, 'Yes, Delete', 
                 async function (event){
                     event.preventDefault();
-                    let project_id = current_project.id;
+                    let project_id = current_project;
                     if(!project_id) throw new Error("No current project to delete");
                     await projects.delete(project_id);
                     document.getElementById('delete-project-form-container').remove();
@@ -61,13 +70,19 @@ export const projects = (function(){
                 const menu_items = [
                    { label: 'New Project', iconClasses: ['fa-solid', 'fa-folder-plus'], onClick: () => {projects.forms.addProject()}},
                 ];
-                if(await projects.load(users.getCurrent().id)){
+                if(await projects.load(current_user)){
                     menu_items.push( { label: 'Open Project', iconClasses: ['fa-regular','fa-folder-open'], onClick: () => {projects.forms.openProject()}},);
                 }
                 if(current_project){
                     menu_items.push(
                         { label: 'Rename Project',iconClasses:['fa-solid','fa-pen-to-square'], onClick: () =>{}},
-                        { label: 'Delete Project',iconClasses: ['fa-solid', 'fa-trash'], onClick: () => {projects.forms.deleteProject()}}
+                        { label: 'Properties',iconClasses:['fa-regular','fa-rectangle-list'], onClick: () => {
+                            properties.menu.create()
+                            window.eventBus.emit('properties:openPropertiesMenu', {});
+                        }},
+                        { label: 'Delete Project',iconClasses: ['fa-solid', 'fa-trash'], onClick: () => {
+                            projects.forms.deleteProject()}
+                        }
                     );
                 }
                 createContextMenu('projects-context-menu-button', menu_items);
@@ -85,13 +100,14 @@ export const projects = (function(){
     //public interface
     return {
         getCurrent:() => {return current_project},
-        open: (project) => {
+        open: async (project_id) => {
             projects.close();
-            current_project = project;
-            projectLabel.innerHTML = current_project.name;
+            const project = await database.load("Get Project", `project/${project_id}`);
+            current_project = project.id;
+            projectLabel.innerHTML = project.name;
             projectDescription.innerHTML = "descrição sumaria do projeto...";
-            createLayersMenu();
-            loadLayers(current_project.id);
+            window.eventBus.emit("projects:openProject", {project_id: project_id});
+            
         },
         load: async (user_id) => {
             try{
@@ -104,13 +120,14 @@ export const projects = (function(){
             if (!current_project) return;
             current_project = null;
             projectLabel.innerHTML = "NO PROJECT";
-            removeLayersMenu(); 
+            window.eventBus.emit("projects:closeProject",{});
+             
         },
         add: async (user_id, project_name) => {
             const new_project = await database.add("project", "add_project/", {name: project_name} );
             await database.add("project user association", "associate_project_user/", {project_id: new_project.id, user_id: user_id});
             projects.open(new_project);
-            await addLayer("Untitled Layer");
+            window.eventBus.emit("projects:addProject",{});
         },
         edit:()=>{},
         delete: async (project_id) => {

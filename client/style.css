@@ -2,7 +2,6 @@
 
 html,
 body {
-  display: flex;
   margin: 0;
   padding: 0;
   height: 100vh;
@@ -10,7 +9,9 @@ body {
   overflow: hidden;
   font-family:Verdana, Geneva, Tahoma, sans-serif;
 }
-
+.hidden-column {
+  display: none;
+}
 #map {
   flex-grow: 1;
   /* Adjust height to occupy the remaining space */
@@ -75,7 +76,6 @@ body {
 #logoutButton:hover {
   background: #b30000;
 }
-/* Usuario actual */
 #currentUserDisplay {
   font-size: 18px;
   font-weight: bold;
@@ -111,6 +111,8 @@ body {
   color: #666;
 }
 
+  
+/*CONTEXT MENU*/
 .context-menu-button {
   position: relative; 
   right: 10px;
@@ -123,8 +125,6 @@ body {
 .context-menu-button:hover{
   background-color: #f0f0f0;
 }
-  
-/*CONTEXT MENU*/
 .context-menu {
   position: fixed;
   background: rgba(220, 219, 219, 0.8);
@@ -147,6 +147,46 @@ body {
 .context-menu-item:hover {
   background-color: #f0f0f0;
 }
+/*FEATURE POP UP*/
+.feature-popup {
+  position: relative; /* Relative as it's inside an OpenLayers overlay */
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  max-width: 100%; /* Prevents overflow beyond screen width */
+  width: auto; /* Allows width to adjust based on content */
+  height: auto; /* Allows height to adjust based on content */
+  z-index: 1000;
+}
+
+.feature-popup h2 {
+  margin-top: 0;
+}
+
+.feature-popup .footer {
+  margin-top: 10px;
+}
+
+.feature-popup img {
+  max-width: 100%; /* Ensures the image does not overflow */
+  height: auto;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.feature-popup-arrow {
+  position: absolute;
+  bottom: -10px; /* Positioned below the feature-popup */
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 10px solid white; /* Arrow color same as feature-popup background */
+  transform: translateX(-50%);
+}
 /*LAYERS */
 #layers-container{
   position: fixed;
@@ -160,19 +200,44 @@ body {
   box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
   z-index: 1000; 
 }
-/* popUpForms */
-.popupForm {
-  display: none;
-  background: #f0f0f0;
-  border-radius: 10px;
-  padding: 20px;
-  width: 300px;
+/*DATA TABLE*/
+.popup {
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 1;
+  width: 400px;
+  border: 1px solid #000;
+  background: #fff;
+  padding: 10px;
+  z-index: 1000;
+  cursor: move;
 }
+.table-container {
+  max-height: 400px;
+  overflow-y: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+table, th, td {
+  border: 1px solid #000;
+}
+th, td {
+  padding: 8px;
+  text-align: left;
+}
+.buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+.buttons button {
+  margin: 0 5px;
+}
+/* popUpForms */
+
 .popupForm input[type="text"],
 .popupForm input[type="password"] {
   width: 100%;
@@ -239,10 +304,6 @@ body {
   background: #0056b3;
 }
 
-.errorLabel {
-  color: red;
-  margin-top: 10px;
-}
 .popupForm select {
   width: 100%;
   padding: 10px;
@@ -252,13 +313,14 @@ body {
   border-radius: 5px;
   background-color: white;
   font-size: 16px; 
-  /* Agrega cualquier otro estilo deseado */
 }
-.popupForm select:hover {
-  /* Agrega estilos de hover aquí si lo deseas */
+  .popup h2 {
+    margin-top: 0;
 }
 
-
+.popupForm .footer {
+    margin-top: 10px;
+}
 
 /*LAYERS ACCORDION*/
 .accordion {
@@ -349,15 +411,15 @@ body {
 }
 /*POINTS*/
 .point-menu {
-  position: absolute; /* Coloca el menú en una posición absoluta en relación con su contenedor principal */
-  top: 10px; /* Ajusta la distancia desde la parte superior del contenedor principal */
-  left: 30%; /* Ajusta la distancia desde la parte izquierda del contenedor principal */
+  position: absolute; 
+  top: 10px; 
+  left: 30%; 
   
-  background-color: rgba(255, 255, 255, 0.8); /* Color de fondo con opacidad */
-  border: 1px solid #ccc; /* Borde del menú */
-  padding: 10px; /* Espaciado interno del menú */
-  z-index: 1000; /* Z-index para asegurarse de que el menú aparezca sobre otros elementos */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Sombra suave */
+  background-color: rgba(255, 255, 255, 0.8); 
+  border: 1px solid #ccc; 
+  padding: 10px; 
+  z-index: 1000; 
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); 
 }
 .point-container {
   display: flex;

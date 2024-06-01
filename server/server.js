@@ -210,6 +210,19 @@ app.get("/projects/:user_id", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Internal server error in projects get" });
   }
 });
+app.get("/project/:id", async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT * FROM projects WHERE projects.id = $1;`,[req.params.id]);
+    if (result.rowCount === 0) {
+      res.status(404).send(`PEOJECT ${req.params.id} NOT FOUND`);
+    } else {
+      res.status(200).json(result.rows);
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal server error in projects get" });
+  }
+});
 app.post("/add_project",authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
@@ -513,6 +526,8 @@ app.get("/properties/:point_id", async (req, res) => {
 });
 app.post("/add_property/:project_id", async (req, res) => {
   try {
+    
+    console.log(req.body.values);
     const result = await pool.query(
       `INSERT INTO properties (name, values, default_value, project_id)
        VALUES($1, $2, $3, $4) 
@@ -531,17 +546,15 @@ app.post("/add_property/:project_id", async (req, res) => {
     res.status(500).json({ error: "Internal server error post property" });
   }
 });
-app.put("/update_property/:property_id", async (req, res) => {
+app.put("/update_property/:id", async (req, res) => {
   try {
-    
-    const jsonbValues = JSON.stringify(req.body.values);
+    console.log("PROPERTY BEFORE UPDATE:");
+    console.log( req.body.values);
     const result = await pool.query(
-      "UPDATE properties SET name = $1, values = $2 WHERE id = $3 RETURNING *",
-      [req.body.name, jsonbValues, req.params.property_id]
+      "UPDATE properties SET name = $1, values = $2, default_value = $3 WHERE id = $4 RETURNING *",
+      [req.body.name, req.body.values, req.body.default_value,  req.params.id]
     );
     const updatedProperty = result.rows[0];
-    updatedProperty.values = JSON.parse(updatedProperty.values);
-
     console.log("PROPERTY UPDATE: ");
     console.log(updatedProperty);
     res.status(200).json(updatedProperty);
@@ -571,9 +584,28 @@ app.delete("/delete_property/:id", async (req, res) => {
 });
 
 //POINTS_PROPERTIES
-app.get("/points_properties_associations", async (req, res) => {
+app.get("/points_properties_associations/:project_id", async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM points_properties");
+    const result = await pool.query(`
+    SELECT 
+    points.id as point_id,
+	  properties.id as property_id, 
+    properties.name as property_name, 
+    properties.values as property_values, 
+    properties.default_value as property_default_value, 
+    points_properties.value as point_property_value 
+    FROM 
+        projects 
+    INNER JOIN 
+        layers ON projects.id = layers.project_id
+    INNER JOIN 
+        points ON points.layer_id = layers.id 
+    INNER JOIN 
+        points_properties ON points_properties.point_id = points.id 
+    INNER JOIN 
+        properties ON properties.id = points_properties.property_id
+    WHERE 
+        projects.id = $1; `,[req.params.project_id]);
     res.status(200).json(result.rows);
   } catch (error) {
     console.error(error);
@@ -588,6 +620,23 @@ app.get("/points_properties_associations/:point_id", async (req, res) => {
        WHERE point_id = $1`,
     [req.params.point_id]
     );
+    console.log(result.rows);
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal server error in getting especific point properties" });
+  }
+});
+app.get("/points_properties_associations/:project_id/:property_id", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM properties INNER JOIN points_properties 
+       ON properties.id = points_properties.property_id
+       WHERE properties.id = $1
+       AND project_id = $2;`,
+    [req.params.property_id, req.params.project_id]
+    );
+    console.log(result.rows);
     res.status(200).json(result.rows);
   } catch (error) {
     console.error(error);

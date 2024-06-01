@@ -10,9 +10,10 @@ import Feature from 'ol/Feature';
 import {Icon, Style, Text, Fill, Stroke} from 'ol/style';
 import {fromLonLat, toLonLat} from 'ol/proj';
 import { Overlay } from 'ol';
-import {isSelected, addPoint, getSelectedPoints, unselectPoints, selectPoint} from './main.js';
-import { createEditPointButton, createPropertyTable,findPropertyInObject } from './menus.js';
-import { createForm, createButton, createElementWithAttributes } from './formUtils.js';
+import {  createPropertyTable } from './formUtils.js';
+import {  createButton, createElementWithAttributes } from './formUtils.js';
+import {features} from './features.js';
+import { findPropertyInObject } from './menus.js';
 //MISC
 export function stringifyCoordinates(coordinates) {
     const [x, y] = coordinates;
@@ -80,21 +81,27 @@ export function newMap(){
     });
     map.addOverlay(popupOverlay);
     map.on('click', async function(event){
-        if (adding_point_mode){
-            await addPoint(event.coordinate);
+        if (adding_point_mode) {
+            await features.addPoint(event.coordinate);
             addPointModeOff();
             return;  
         }
-        if(!isCtrlPressed(event.originalEvent)){
-            unselectPoints();         
-        }
+        
+       
         let hovered_feature = getHoveredFeature(event);
-        if(hovered_feature){
-           selectPoint(hovered_feature.get('id'));
-           showPointProperties(hovered_feature.get('id'));
-        }else{
-            hidePointProperties();
+        if (!hovered_feature) {
+            features.unselect();
+            popupOverlay.setElement(null);
+            return;   
         }
+        if (!isCtrlPressed(event.originalEvent)) {
+            features.unselect();
+            showPointProperties(hovered_feature.get('id'));
+        }else{
+            popupOverlay.setElement(null);
+        }
+        features.select(hovered_feature.get('id'));
+        
        
     });
     map.on('pointermove', function (event) {
@@ -148,7 +155,7 @@ function getLayerFromMap(layer_id) {
 export function unloadLayersFromMap(){
     map.getLayers().forEach(function (layer) {
         if (!(layer instanceof LayerGroup)) {
-            console.log(layer);
+            
             map.removeLayer(layer);
         }
     });
@@ -225,8 +232,6 @@ export function deletePointFromMap(point_id) {
 export function editPointFromMap(new_point_data){
     let point = getPointFromMap(new_point_data.id);
     let properties = point.getProperties();
-    
-    console.log(new_point_data);
     Object.keys(properties).forEach((property) => {
         let target_property_value = findPropertyInObject(new_point_data, property);
         if (target_property_value) {
@@ -250,12 +255,12 @@ export function unselectPointOnMap(point_id){
     let point = getPointFromMap(point_id);
     if(!point) throw new Error("Ponto não encontrado");
     setPointStateOnMap(point,'normal');
-    hidePointProperties();
+    popupOverlay.setElement(null);
 }
 function setPointStyle(point, style_data){
     point.set('style_normal',  newPointStyle(style_data.normal));
     point.set('style_highlighted',  newPointStyle(style_data.highlighted));
-    if(isSelected(point.get('id'))){
+    if(features.isSelected(point.get('id'))){
         setPointStateOnMap(point, 'highlighted');
     }
     setPointStateOnMap(point, 'normal');
@@ -263,89 +268,100 @@ function setPointStyle(point, style_data){
 
 //PROPERTIES
 export function showPointProperties(point_id) {
+    popupOverlay.setElement(null);
     const point = getPointFromMap(point_id);
     if (!point) throw new Error("Ponto invalido");
-    const properties = point.getProperties();
-    
-    const popupElement = createElementWithAttributes('div', { className: 'popup' });
-    
-    const pointNameHeader = createElementWithAttributes('h2', { textContent: point.get('name') });
-    popupElement.appendChild(pointNameHeader);
-    
-    const imgElement = createElementWithAttributes('img', {
-        src: point.get('foto'),
-        width: 300,
-        height: 200
+    const popupElement = createElementWithAttributes('div', {class:'feature-popup'});
+    const pointNameHeader = createElementWithAttributes('h2', {textContent: point.get('name')});
+    const imgElement = createElementWithAttributes('img', {src:point.get('foto'), width:200, height:100});
+    const propertyTable = createPropertyTable(point.getProperties().custom_properties);
+    const coordinatesFooter = createElementWithAttributes('div', {class: 'footer', innerHTML:`<i class="fa-solid fa-location-pin"></i>   ${stringifyCoordinates(point.get('coordinates'))}`});
+    const editButton = createButton('Edit', 'edit-button', ['fa-edit'], ["formButton"], () => features.forms.edit(point));
+    const delete_button = createButton('Delete', 'delete-button', ['fa-trash'], ["formButton"], () => {
+        features.unselect();
+        features.delete(point_id);
+        popupOverlay.setElement(null);
     });
-    popupElement.appendChild(imgElement);
-
-    const propertyTable = createPropertyTable(properties.custom_properties);
-    popupElement.appendChild(propertyTable);
-
-    const coordinatesFooter = createElementWithAttributes('div', {
-        className: 'footer',
-        innerHTML: `<strong>Coordenadas:</strong> (${stringifyCoordinates(point.get('coordinates'))})`
-    });
-    popupElement.appendChild(coordinatesFooter);
-
-    const editButton = createEditPointButton(point);
-    popupElement.appendChild(editButton);
-
-    popupOverlay.setElement(popupElement);
-
+    const arrowElement = createElementWithAttributes('div', {class:'feature-popup-arrow'});
+    popupElement.append(pointNameHeader, imgElement, propertyTable, coordinatesFooter, editButton, delete_button, arrowElement);
+    
+    document.body.appendChild(popupElement)
     const popupSize = popupElement.getBoundingClientRect();
     const offsetX = -popupSize.width / 2;
-    const offsetY = 10;
-    popupOverlay.setOffset([offsetX, offsetY]);
+    const offsetY = -popupSize.height + 20; 
+
+    document.body.removeChild(popupElement); 
+    popupOverlay.setElement(popupElement);
+    //popupOverlay.setOffset([offsetX, offsetY]);
     popupOverlay.setPosition(point.get('coordinates'));
-}
-export function hidePointProperties() {
-    popupOverlay.setElement(null);
+
 }
 export function addPropertyToPointOnMap(point_id, point_property) {
     const point = getPointFromMap(point_id);
-    if (!point) throw new Error("ponto não encontrado");
-
-    if (point_property.options && point_property.options.trim() !== "") {
-        point_property.options = JSON.parse(point_property.options);
-    }
     point.get('custom_properties').push(point_property);
-    const popupElement = popupOverlay.getElement();
-    if (popupElement) {
+    if (features.isSelected(point_id)){
         showPointProperties(point_id);
-    }  
+    }
 }
 export function deletePropertyFromPointOnMap(point_id, property_id) {
     let point = getPointFromMap(point_id);
-    if (!point) throw new Error("ponto não encontrado");
-    point.set('custom_properties', point.get('custom_properties').filter(property => property.id !== property_id));
-    const popupElement = popupOverlay.getElement();
-    if (popupElement) {
+    let custom_properties = point.getProperties().custom_properties;
+    point.set('custom_properties', custom_properties.filter(property => property.id != property_id));
+    if (features.isSelected(point_id)){
         showPointProperties(point_id);
     }
 }
-export function editPropertyFromPointOnMap(point_id, new_property_data){
-    let point = getPointFromMap(point_id);
-    let custom_properties = point.getProperties().custom_properties;
-    let target_property = custom_properties.find((property) => property.id == new_property_data.id);
-    target_property.value = new_property_data.value;
-    const popupElement = popupOverlay.getElement();
-    if (popupElement) {
+export function editPropertyFromPointOnMap(point_id, new_property_data) {
+    const point = getPointFromMap(point_id);
+    const custom_properties = point.getProperties().custom_properties;
+    const updatedProperties = custom_properties.map(prop => {
+        if (prop.id === new_property_data.id) {
+            if(!prop.value || !new_property_data.values.includes(prop.value)){
+                prop.value = new_property_data.default_value;
+            }
+            return new_property_data;
+        }
+        return prop;
+    });
+    point.set('custom_properties', updatedProperties);
+    if (features.isSelected(point_id)) {
         showPointProperties(point_id);
-    }      
+    }
 }
-export function addPropertyToMap(property){
+function removePropertyFromPoint(point, property_id) {
+    
+}
+
+export function addPropertyToMap(new_property){
+    forEachFeature(point => {
+        addPropertyToPointOnMap(point.id, new_property);
+    });
+           
+        
+    
+}
+/*export function editPropertyFromMap(property_data){
     const layers = map.getLayers().getArray();
     for(const layer of layers){
         if (layer instanceof LayerGroup) continue;
         const features = layer.getSource().getFeatures();
         features.forEach(point => {
-            addPropertyToPointOnMap(point.id, point_property);
+            editPropertyFromPointOnMap(point.get('id'), property_data);
         });
-    }
+    }        
+}*/
+export function editPropertyFromMap(property_data) {
+    forEachFeature(point => {
+        editPropertyFromPointOnMap(point.get('id'), property_data);
+    });
 }
-export function editPropertyFromMap(){
-    
+export function forEachFeature(callback) {
+    const layers = map.getLayers().getArray();
+    for (const layer of layers) {
+        if (layer instanceof LayerGroup) continue;
+        const features = layer.getSource().getFeatures();
+        features.forEach(callback);
+    }
 }
 export function deletePropertyFromMap(property_id){
     const layers = map.getLayers().getArray();
@@ -353,6 +369,7 @@ export function deletePropertyFromMap(property_id){
         if (layer instanceof LayerGroup) continue;
         const features = layer.getSource().getFeatures();
         features.forEach(point => {
+            
             deletePropertyFromPointOnMap(point.get('id'), property_id);
         });
     }    
@@ -371,7 +388,6 @@ export function applyStyleRulesToPointOnMap(point_id, style_rules){
     });
     if(!rule_applies){
         setPointStyle(point, default_point_style_data);
-        console.log("No rule applies to: " + point.get('name'));
     }
 
 }
@@ -379,7 +395,6 @@ export  function applyStyleRuleToPointOnMap(style_rule, point){
     const style_rule_applies_to_point = styleRuleAppliesToPoint(style_rule, point);
     if(style_rule_applies_to_point){
         const style_data = JSON.parse(style_rule.value);
-        console.log("rule applies to point " + point.get("name"));
         setPointStyle(point, style_data);
         return true;
     }
