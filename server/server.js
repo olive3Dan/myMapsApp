@@ -212,11 +212,12 @@ app.get("/projects/:user_id", authenticateToken, async (req, res) => {
 });
 app.get("/project/:id", async (req, res) => {
   try {
-    const result = await pool.query(`SELECT * FROM projects WHERE projects.id = $1;`,[req.params.id]);
+    console.log("project id : " + req.params.id);
+    const result = await pool.query(`SELECT * FROM projects WHERE id = $1;`,[req.params.id]);
     if (result.rowCount === 0) {
-      res.status(404).send(`PEOJECT ${req.params.id} NOT FOUND`);
+      res.status(404).send(`PROJECT ${req.params.id} NOT FOUND`);
     } else {
-      res.status(200).json(result.rows);
+      res.status(200).json(result.rows[0]);
     }
   } catch (error) {
     console.error(error);
@@ -330,7 +331,7 @@ app.delete("/delete_project_user_association/:project_id/:user_id",authenticateT
 });
 
 //LAYERS
-app.get("/layers/:project_id",authenticateToken, async (req, res) => {
+app.get("/layers/:project_id", async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT * FROM layers WHERE project_id = $1",
@@ -501,10 +502,16 @@ app.delete("/delete_point/:id", async (req, res) => {
 app.get("/project_properties/:project_id", async (req, res) => {
   try {
     const result = await pool.query(
-        `SELECT * FROM properties where project_id = $1;`, 
+        `SELECT id, name, values, default_value, project_id FROM properties where project_id = $1;`, 
         [req.params.project_id]
-      );
-    res.status(200).json(result.rows);
+    );
+    
+    const properties = result.rows.map(row => ({
+      ...row,
+      values: JSON.parse(row.values)
+    }));
+
+    res.status(200).json(properties);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal server error in properties get" });
@@ -513,12 +520,20 @@ app.get("/project_properties/:project_id", async (req, res) => {
 app.get("/properties/:point_id", async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT * FROM properties 
+      `SELECT properties.id, properties.name, properties.values, properties.default_value, points_properties.point_id
+       FROM properties 
        INNER JOIN points_properties
        ON properties.id = points_properties.property_id
        WHERE points_properties.point_id = $1;`, 
-       [req.params.point_id]);
-    res.status(200).json(result.rows);
+       [req.params.point_id]
+    );
+    
+    const properties = result.rows.map(row => ({
+      ...row,
+      values: JSON.parse(row.values)
+    }));
+
+    res.status(200).json(properties);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal server error in properties get" });
@@ -526,21 +541,25 @@ app.get("/properties/:point_id", async (req, res) => {
 });
 app.post("/add_property/:project_id", async (req, res) => {
   try {
-    
-    console.log(req.body.values);
     const result = await pool.query(
       `INSERT INTO properties (name, values, default_value, project_id)
        VALUES($1, $2, $3, $4) 
        RETURNING *`,
-      [req.body.name, 
-        req.body.values,
+      [
+        req.body.name,
+        JSON.stringify(req.body.values),  // Ensure values are stored as JSON string
         req.body.default_value,
         req.params.project_id
       ]
     );
-    console.log(result.rows[0]);
-    res.status(201).json(result.rows[0]);
+    
+    const newProperty = {
+      ...result.rows[0],
+      values: JSON.parse(result.rows[0].values)  // Convert values back to array for the response
+    };
 
+    console.log(newProperty);
+    res.status(201).json(newProperty);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal server error post property" });
@@ -552,11 +571,13 @@ app.put("/update_property/:id", async (req, res) => {
     console.log( req.body.values);
     const result = await pool.query(
       "UPDATE properties SET name = $1, values = $2, default_value = $3 WHERE id = $4 RETURNING *",
-      [req.body.name, req.body.values, req.body.default_value,  req.params.id]
+      [req.body.name, JSON.stringify(req.body.values), req.body.default_value,  req.params.id]
     );
     const updatedProperty = result.rows[0];
+    updatedProperty.values = JSON.parse(updatedProperty.values)
     console.log("PROPERTY UPDATE: ");
     console.log(updatedProperty);
+    
     res.status(200).json(updatedProperty);
   } catch (error) {
     console.error(error);
@@ -587,60 +608,82 @@ app.delete("/delete_property/:id", async (req, res) => {
 app.get("/points_properties_associations/:project_id", async (req, res) => {
   try {
     const result = await pool.query(`
-    SELECT 
-    points.id as point_id,
-	  properties.id as property_id, 
-    properties.name as property_name, 
-    properties.values as property_values, 
-    properties.default_value as property_default_value, 
-    points_properties.value as point_property_value 
-    FROM 
+      SELECT 
+        points.id as point_id,
+        properties.id as property_id, 
+        properties.name as property_name, 
+        properties.values as property_values, 
+        properties.default_value as property_default_value, 
+        points_properties.value as point_property_value 
+      FROM 
         projects 
-    INNER JOIN 
+      INNER JOIN 
         layers ON projects.id = layers.project_id
-    INNER JOIN 
+      INNER JOIN 
         points ON points.layer_id = layers.id 
-    INNER JOIN 
+      INNER JOIN 
         points_properties ON points_properties.point_id = points.id 
-    INNER JOIN 
+      INNER JOIN 
         properties ON properties.id = points_properties.property_id
-    WHERE 
-        projects.id = $1; `,[req.params.project_id]);
-    res.status(200).json(result.rows);
+      WHERE 
+        projects.id = $1;`, 
+      [req.params.project_id]
+    );
+    
+    const properties = result.rows.map(row => ({
+      ...row,
+      property_values: JSON.parse(row.property_values)
+    }));
+
+    res.status(200).json(properties);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal server error in points_properties_associations get" });
   }
 });
-app.get("/points_properties_associations/:point_id", async (req, res) => {
+app.get("/point_properties_associations/:point_id", async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT * FROM properties
+      `SELECT properties.*, points_properties.value as point_property_value
+       FROM properties
        INNER JOIN points_properties ON properties.id = points_properties.property_id
-       WHERE point_id = $1`,
-    [req.params.point_id]
+       WHERE points_properties.point_id = $1`,
+      [req.params.point_id]
     );
-    console.log(result.rows);
-    res.status(200).json(result.rows);
+    
+    const properties = result.rows.map(row => ({
+      ...row,
+      values: JSON.parse(row.values)
+    }));
+
+    console.log(properties);
+    res.status(200).json(properties);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error in getting especific point properties" });
+    res.status(500).json({ error: "Internal server error in getting specific point properties" });
   }
 });
+
 app.get("/points_properties_associations/:project_id/:property_id", async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT * FROM properties INNER JOIN points_properties 
-       ON properties.id = points_properties.property_id
-       WHERE properties.id = $1
-       AND project_id = $2;`,
-    [req.params.property_id, req.params.project_id]
+      `SELECT properties.*, points_properties.value as point_property_value
+       FROM properties 
+       INNER JOIN points_properties ON properties.id = points_properties.property_id
+       WHERE properties.id = $1 AND points_properties.project_id = $2;`,
+      [req.params.property_id, req.params.project_id]
     );
-    console.log(result.rows);
-    res.status(200).json(result.rows);
+    
+    const properties = result.rows.map(row => ({
+      ...row,
+      values: JSON.parse(row.values)
+    }));
+
+    console.log(properties);
+    res.status(200).json(properties);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error in getting especific point properties" });
+    res.status(500).json({ error: "Internal server error in getting specific point properties" });
   }
 });
 app.post("/add_point_property_association/:point_id", async (req, res) => {

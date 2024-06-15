@@ -21,3 +21,4 @@ class EventBus {
     }
   }
   window.eventBus = new EventBus();
+  export default EventBus;

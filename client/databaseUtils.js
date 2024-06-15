@@ -65,6 +65,7 @@ export const database = (function(){
         },
         update: async function (entity_name, end_point, values) {
             let request = JSON.stringify(values);
+            
             const response = await fetch(server_url + end_point, {
                 method: "PUT",
                 headers: { 

@@ -1,35 +1,47 @@
-import { projects } from './projects.js';
+
 import { createElementWithAttributes, createContextMenu,  createForm, createButton } from './formUtils.js';
-import { addLayerToMap, unloadLayersFromMap} from './mapTools.js'
+import { addLayerToMap, deleteLayerFromMap } from './mapTools.js'
 import {database} from './databaseUtils.js'
-import { features } from './features.js';
 export const layers = (function(){
     //private variables and functions
-    window.eventBus.on('projects:openProject', (event) => {
+    let current_user = null;
+    let current_project = null;
+    let current_layer = null;
+    window.eventBus.on('projects:openProject', async (event) => {
+        current_project = event.project_id;
         layers.menu.create();
-        layers.load(event.project_id);
+        const layers_data = await layers.load(event.project_id);
+        if(!layers_data) return;
+        layers.select(layers_data[0].id);
     });
     window.eventBus.on('projects:closeProject', (event) => {
-        layers.menu.delete();
+        layers.unload();
+        layers.menu.remove();
+        current_project = null;
+        current_layer = null;
     });
-    window.eventBus.on('projects:addProject', async () => {
-        await layers.add("Untitled Layer");
+    window.eventBus.on('layers:expandLayer', (event) => {
+        toggleAccordion(event.panel, event.action);
     });
-    let current_layer = null;
-    function changeLayerClickSelectBehavior(element) {
-        element.addEventListener("click", function(event) {
-            if (event.target.tagName === 'LABEL') {
-                event.preventDefault(); // This will prevent the checkbox from being checked
-                var panel = this.nextElementSibling;
-                if (panel.style.maxHeight) {
-                    panel.style.maxHeight = null;
-                    panel.classList.remove('show');
-                } else {
-                    panel.style.maxHeight = panel.scrollHeight + "px";
-                    panel.classList.add('show');
-                }
+    
+    function toggleAccordion(panel, action = 'toggle') {
+        if (action === 'open') {
+            panel.style.maxHeight = panel.scrollHeight + "px";
+            
+        } else if (action === 'close') {
+            if (panel.style.maxHeight) {
+                panel.style.maxHeight = null;
+                
             }
-        });
+        } else if (action === 'toggle') {
+            if (panel.style.maxHeight) {
+                panel.style.maxHeight = null;
+                
+            } else {
+                panel.style.maxHeight = panel.scrollHeight + "px";
+                
+            }
+        }
     }
     const forms = {
         
@@ -67,7 +79,7 @@ export const layers = (function(){
             const layers_container = document.getElementById("layers-container");
             if (!layers_container) return;
             layers_container.remove();
-            console.log("LAYERS CONTAINER REMOVED");
+            
         },
         select:(layer_id)=>{
             const layer_selector_item = document.getElementById("layer-" + layer_id);
@@ -83,19 +95,25 @@ export const layers = (function(){
                 layer_container.removeChild(accordion_item);
             }
         },
-        add:(layer)=>{
+        add:(layer_id, layer_name)=>{
             const layer_container = document.getElementById('layers-container');
-            const accordion_item = createElementWithAttributes('div', {id:`layer-${layer.id}`, class:'accordion-item'});
-            accordion_item.addEventListener('click', () => { layers.select(layer)});
+            const accordion_item = createElementWithAttributes('div', {id:`layer-${layer_id}`, class:'accordion-item'});
+            accordion_item.addEventListener('click', () => { layers.select(layer_id)});
             const accordion_header = createElementWithAttributes('div', {class:'accordion-header'});
-            accordion_header.classList.add('show');
-            changeLayerClickSelectBehavior(accordion_header);
+            
+            accordion_header.addEventListener("click", function(event) {
+                if (event.target.tagName === 'LABEL') {
+                    event.preventDefault(); // This will prevent the checkbox from being checked
+                    var panel = this.nextElementSibling;
+                    toggleAccordion(panel);
+                }
+            });
             const accordion_buttons_container = createElementWithAttributes('div', {id: 'accordion-buttons-container', class:'accordion-buttons'});
-            const checkbox = createElementWithAttributes('input', {type:'checkbox', id:`layer-checkbox-${layer.id}`, class:'accordion-title'});
-            const checkbox_label = createElementWithAttributes('label', {htmlFor: layer.id, class:'accordion-label', textContent: layer.name});
-            const deleteButton = createButton('', '', ['fa-trash'],["formButton", 'accordion-delete-btn'], ()=>layers.forms.delete(layer.id));
+            const checkbox = createElementWithAttributes('input', {type:'checkbox', id:`layer-checkbox-${layer_id}`, class:'accordion-title'});
+            const checkbox_label = createElementWithAttributes('label', {htmlFor: layer_id, class:'accordion-label', textContent: layer_name});
+            const deleteButton = createButton('', '', ['fa-trash'],["formButton", 'accordion-delete-btn'], ()=>layers.forms.delete(layer_id));
             accordion_buttons_container.appendChild(deleteButton);
-            const accordion_content = createElementWithAttributes('div', {id: `layer-content-${layer.id}`, class:'accordion-content'});
+            const accordion_content = createElementWithAttributes('div', {id: `layer-content-${layer_id}`, class:'accordion-content'});
             accordion_header.append(checkbox, checkbox_label, accordion_buttons_container);
             accordion_item.append(accordion_header, accordion_content);
             layer_container.append(accordion_item);
@@ -103,41 +121,63 @@ export const layers = (function(){
     };
     //public interface
     return {
-        getCurrent:() => {return current_layer},
-        select:(layer) => {
-           layers.menu.select(layer.id);
-            current_layer = layer;
+        select:(layer_id) => {
+           layers.menu.select(layer_id);
+           current_layer = layer_id;
+           eventBus.emit('layers:selectLayer', {layer_id:layer_id});
         },
-        open: (project) => {  
+        open: () => {  
         },
-        load: async (project_id) => {
-            if(!project_id) return;
-            let layers_data = await database.load("Layers", `layers/${project_id}`)
-            if(!layers_data) return;
+        load: async () => {
+            let layers_data 
+            try{
+                console.log("UNLOAD LAYERS")
+                console.log("CURRENT PROJECT " + current_project)
+                layers_data = await database.load("Layers", `layers/${current_project}`); 
+            }catch(error){
+                return null;
+            }
             layers_data.forEach(async(layer) => {
+                layers.menu.add(layer.id, layer.name);
                 addLayerToMap(layer.id);
-                layers.menu.add(layer);
-                await features.load(layer.id);
             });
-            layers.select(layers_data[0]);
+            window.eventBus.emit('layers:layersLoaded', {});
+            return layers_data;
         },
-        unload:() => {
-            unloadLayersFromMap();
-            current_layer = null;
+        unload: async () => {
+            let layers 
+            try{
+                console.log("UNLOAD LAYERS")
+                console.log("CURRENT PROJECT " + current_project)
+                
+                layers = await database.load("Layers", `layers/${current_project}`); 
+            }catch(error){
+                return null;
+            }
+            for(const layer of layers){
+                deleteLayerFromMap(layer.id);
+            }
         },
         add: async (layer_name) => {
-            let project_id = projects.getCurrent();
-            if(!project_id) throw new Error(`Projeto não encontrado: ${project_id}`);
-            let new_layer = await database.add("layer", `add_layer/${project_id}`, {name: layer_name});
-            layers.menu.add(new_layer);
+            if(!current_project) return null
+            let new_layer;
+            try{
+                new_layer = await database.add("layer", `add_layer/${current_project}`, {name: layer_name});
+            }catch(error){
+                return null;
+            }
+            layers.menu.add(new_layer.id, new_layer.name);
             addLayerToMap(new_layer.id);
-            layers.select(new_layer); 
+            layers.select(new_layer.id);
+            return new_layer.id; 
         },
-        edit:()=>{},
+        edit:() => {},
         delete: async (layer_id) => {
             await database.delete("layer", `delete_layer/`, layer_id);
             deleteLayerFromMap(layer_id);
-            layers.menu.delete(layer_id); 
+            layers.menu.delete(layer_id);
+            if (layer_id == current_layer) current_layer = null;
+            eventBus.emit('layers:deleteLayer', {layer_id:layer_id});
         },
         menu: menu,
         forms: forms

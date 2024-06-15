@@ -1,19 +1,17 @@
+import './EventBus'
 import './style.css';
-import { eventBus } from './eventBus.js';
 import { createMapToolsMenu} from './menus';
-import { newMap} from './mapTools';
-import {users} from './users.js';
-import {projects} from './projects.js'
-import { properties } from './properties.js';
-import {createDataTablePopup} from './formUtils.js'
+import {newMap} from './mapTools';
+import {users} from './users';
+import {layers} from './layers';
+import {features} from './features';
+import{properties} from './properties';
 
-
-
-document.addEventListener('DOMContentLoaded', async() => {
+document.addEventListener('DOMContentLoaded', async () => {
   newMap();
   createMapToolsMenu();
   users.menu.create();
-  await users.login("Daniel", "daniel");
+  users.login("Daniel", "daniel");
 });
 
 

@@ -64,14 +64,6 @@ export function createButton(text, id, iconClasses, buttonClasses, clickHandler)
     button.appendChild(buttonText);
     return button;
 }
-/*export function createButton(text, id, iconClasses, buttonClasses, onClick) {
-    const button = document.createElement('button');
-    button.id = id;
-    button.innerText = text;
-    buttonClasses.forEach(cls => button.classList.add(cls));
-    button.addEventListener('click', onClick);
-    return button;
-}*/
 export function addOptionsToSelect(select, data) {
     while (select.firstChild) {
         select.removeChild(select.firstChild);
@@ -108,9 +100,9 @@ export function createInputElement(field) {
         type: field.type,
         id: field.id,
         placeholder: field.placeholder || '',
-        autocomplete: field.autocomplete,
-        value: field.value
+        autocomplete: field.autocomplete
     });
+    if (field.value) input.value = field.value;
     container.appendChild(input);
     return container;
 }
@@ -182,49 +174,33 @@ export function createContextMenu(contextButtonId, menuItems) {
     
     
 }
-
 export function createDataTablePopup(title, headers, visible_fields, values, actions) {
-    const popup = document.createElement('div');
-    popup.classList.add('popupForm');
+    const popup = createElementWithAttributes('div', { class: ["popupForm"] });
     const header = createElementWithAttributes('h2', { textContent: title });
     popup.appendChild(header);
-    
-    const tableContainer = document.createElement('div');
-    tableContainer.classList.add('table-container');
-    
+    const tableContainer = createElementWithAttributes('div', { class: ['table-container'] });
     const table = document.createElement('table');
     const thead = document.createElement('thead');
     const theadRow = document.createElement('tr');
-    
     headers.forEach(field => {
-        const th = document.createElement('th');
-        th.textContent = field;
+        const th = createElementWithAttributes('th', { textContent: field });
         theadRow.appendChild(th);
     });
-    
-    const actionsTh = document.createElement('th');
-    actionsTh.textContent = 'Acciones';
+    const actionsTh = createElementWithAttributes('th', { textContent: 'Acciones' });
     theadRow.appendChild(actionsTh);
     thead.appendChild(theadRow);
     table.appendChild(thead);
-    
-    const tbody = document.createElement('tbody');
-    tbody.id = 'table-body';
-    
+    const tbody = createElementWithAttributes('tbody', { id: 'table-body' });
     values.forEach(value => {
         addRow(tbody, visible_fields, value, actions);
     });
-    
     table.appendChild(tbody);
     tableContainer.appendChild(table);
     popup.appendChild(tableContainer);
-    
     const buttonsContainer = document.createElement('div');
     const addButton = createButton('Add Row', 'add-button', [], [], async () => {
-        const new_object =  await actions.add();
-        console.log(new_object);
+        const new_object = await actions.add();
         addRow(tbody, visible_fields, new_object, actions);
-        
     });
     const closeButton = createButton('Close', 'close-button', [], [], () => document.body.removeChild(popup));
     buttonsContainer.append(addButton, closeButton);
@@ -233,37 +209,41 @@ export function createDataTablePopup(title, headers, visible_fields, values, act
 }
 
 function addRow(tbody, visible_fields, value, actions) {
-    console.log(value);
     const row = document.createElement('tr');
-    const fields = Object.keys(value);
-    fields.forEach(field => {
-        const td = document.createElement('td');
-        td.contentEditable = true;
-        td.textContent = value[field];
-        td.addEventListener('blur', (event) => {
-            const current_row = event.target.closest('tr');
-            const property_data = getRowData(current_row, fields);
-            actions.edit(property_data);
-        });
-        if(!visible_fields.includes(field)){
-            td.classList.add("hidden-column");
-        }
+    row.dataset.rowData = JSON.stringify(value); // Store the entire value object
+
+    visible_fields.forEach(field => {
+        const td = createElementWithAttributes('td', { contentEditable: true, textContent: value[field] || '' });
+        td.dataset.field = field; // Set the custom data attribute
         row.appendChild(td);
     });
-    
-    const delete_button = createButton('', '', ['fa-trash'], ["formButton"], function () {
+
+    const save_button = createButton('', '', ['fa-floppy-disk'], ["formButton"], async function () {
         const row = this.closest('tr');
-        const object_data = getRowData(row, fields);
-        actions.delete(object_data);
+        const object_data = getRowData(row);
+        await actions.edit(object_data);
+        save_button.style.display = 'none';
+    });
+    save_button.style.display = 'none';
+    const delete_button = createButton('', '', ['fa-trash'], ["formButton"], async function () {
+        const row = this.closest('tr');
+        const object_data = getRowData(row);
+        await actions.delete(object_data);
         row.remove();
     });
-    
+
     const actionsTd = document.createElement('td');
+    actionsTd.appendChild(save_button);
     actionsTd.appendChild(delete_button);
     row.appendChild(actionsTd);
     tbody.appendChild(row);
+
+    row.addEventListener('input', function () {
+        save_button.style.display = 'inline-block';
+    });
 }
-function isStringArray(text){
+
+function isStringArray(text) {
     try {
         const options = JSON.parse(text);
         if (Array.isArray(options)) {
@@ -274,14 +254,16 @@ function isStringArray(text){
     }
     return false;
 }
-function getRowData(row, fields) {
-    const cells = row.querySelectorAll('td');
-    const rowData = {};
-    cells.forEach((cell, index) => {
-        if (index < fields.length) { 
-            rowData[fields[index]] = cell.textContent;
-        }
+
+function getRowData(row) {
+    const cells = row.querySelectorAll('td[data-field]');
+    const rowData = JSON.parse(row.dataset.rowData); // Retrieve the original data
+
+    cells.forEach(cell => {
+        const field = cell.dataset.field;
+        rowData[field] = cell.textContent;
     });
+
     return rowData;
 }
 function makePopupDraggable(popup) {

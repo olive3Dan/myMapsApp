@@ -1,28 +1,36 @@
-/**GENERATE INPUT FIELDS PODERÁ SER UMA  FUNCAO GENERICA DO FICHEIRO FORMUTILS
- * se possivel no editar ponto obter os dados do formulario com uma unica funcao getFeatureFormValues
- * Idealmente criar um modelo standart de formularios de adicionar editar e eliminar 
-*/
-import { projects } from './projects.js';
+
 import {database} from './databaseUtils.js'
-import { loadStyleRules } from './main.js';
-import { selectPointOnMap, unselectPointOnMap, addPointToMap, editPointFromMap, deletePointFromMap, addPropertyToPointOnMap, editPropertyFromPointOnMap} from './mapTools.js';
-import {layers} from './layers.js';
-import { properties } from './properties.js';
+import { addPointToMap, editPointFromMap, deletePointFromMap, addPropertyToPointOnMap, editPropertyFromPointOnMap} from './mapTools.js';
 import { stringifyCoordinates } from './mapTools.js';
-import { isCtrlPressed } from './mapTools.js';
 import { createElementWithAttributes, createForm } from './formUtils.js';
-import { stringToCoordinates } from './mapTools.js';
 export const features = (function(){
-    //private variables and functions
-    let current_feature = null;
+    let current_project = null;
+    let current_layer = null;
     let selected_features = [];
     let default_marker_icon = "https://img.freepik.com/vetores-gratis/design-plano-sem-sinal-de-foto_23-2149272417.jpg?w=740&t=st=1694276438~exp=1694277038~hmac=6dba50b5b1cd4985e02643e3159d349ae79eeabaf70ec97e9bd4cfac5987f219";
-    document.addEventListener('keydown', function(event) {
-        if (event.key === 'Delete') {
-            selected_features.forEach(feature_id => features.delete(feature_id));
-            features.unselect();
-        }    
+    
+    window.eventBus.on('projects:openProject', (event) => {current_project = event.project_id;});
+    window.eventBus.on('projects:closeProject', (event) => {
+        current_project = null;
+        current_layer = null;
+        selected_features = [];
     });
+    window.eventBus.on('layers:selectLayer', (event) => {current_layer = event.layer_id;});
+    window.eventBus.on('layers:deleteLayer', (event) => { if (event.layer_id == current_layer) current_layer = null;});
+    window.eventBus.on('layers:layersLoaded', async (event) => await features.load());
+    window.eventBus.on('map:click', async (event) => await features.addPoint(event.coordinates));
+    window.eventBus.on('features:deleteFeature', async (event) => await features.delete(event.feature_id));
+    window.eventBus.on('features:editFeature',  (event) =>  features.forms.edit(event.feature));
+    window.eventBus.on('features:unselectFeature', (event) => features.menu.unselect(event.feature_id));
+    window.eventBus.on('features:selectFeature', (event) => features.menu.select(event.feature_id));
+    
+    function isCtrlPressed(event){
+        return event.ctrlKey || event.metaKey;
+    }
+    function stringToCoordinates(coordinateString) {
+        const coordinatesArray = coordinateString.split(',').map(parseFloat);
+        return coordinatesArray;
+      }
     function generatePointInputFieldsData(point, property_names){
         let properties = point.getProperties();
         let input_fields = [];
@@ -91,6 +99,7 @@ export const features = (function(){
     function generateInputFields(feature){
         const properties = feature.getProperties();
         const point_fields_data = generatePointInputFieldsData(feature, ["name", "foto", 'coordinates'] );
+        
         const custom_properties_fields_data = generatePropertiesInputFieldsData(properties.custom_properties);
         return [...point_fields_data, ...custom_properties_fields_data ];
     }
@@ -103,6 +112,8 @@ export const features = (function(){
         },
         edit: (feature) => {
             const input_fields_data = generateInputFields(feature);
+            console.log("EDIT FEATURE: ")
+            console.log(feature);
             createForm('editPointFormContainer', 'editPointForm', 'Edit Point', input_fields_data, 'OK', async function (event){
                 event.preventDefault(); 
                 let updated_point_data = getPointFormValues(feature, ["name", "foto", 'coordinates'] );
@@ -113,18 +124,14 @@ export const features = (function(){
         },
     };
     const menu = {
-        create: () => {
-            
-        },
-        remove: ()=> {
-            
-        },
         select:(feature_id)=>{
             const feature = document.getElementById("point-" + feature_id);
+            if(!feature)return;
             feature.classList.add("point-container-highlighted");
         },
         unselect:(feature_id)=>{
             const feature = document.getElementById("point-" + feature_id);
+            if(!feature)return;
             feature.classList.remove("point-container-highlighted");
         },
         delete:(feature_id) => {
@@ -132,6 +139,7 @@ export const features = (function(){
             if (featureElement && featureElement.parentNode) {
                 featureElement.parentNode.removeChild(featureElement);
             }
+           
         },
         add:(feature_data) => {
             let layer_content = document.getElementById("layer-content-" + feature_data.layer_id);
@@ -139,19 +147,15 @@ export const features = (function(){
             const icon = createElementWithAttributes('i', {class:['fas', 'fa-map-marker-alt', 'point-icon']});
             const nameLabel = createElementWithAttributes('div', {id:"point-label-" + feature_data.id, class:'point-label', textContent:feature_data.name});
             pointContainer.append(icon, nameLabel);
-            pointContainer.addEventListener('mouseenter', () => {
-                
-            });
-            pointContainer.addEventListener('mouseleave', () => {
-               
-            });
             pointContainer.addEventListener('click', (event) => {
                 if(!isCtrlPressed(event)){
-                    features.unselect();   
+                    window.eventBus.emit('features:unselectAll', {});    
                 }
-                features.select(feature_data.id);
+                window.eventBus.emit('features:selectFeature', {feature_id:feature_data.id});
+
             });
             layer_content.appendChild(pointContainer);
+            window.eventBus.emit('layers:expandLayer', {panel: layer_content, action:'open'})
     
         },
         edit:(feature_data) => {
@@ -160,38 +164,22 @@ export const features = (function(){
         },
     }
     return {
-        getSelected:() => {return selected_features},
-        setSelected:(values) => {
-            selected_features = [...values];
-        },
-        select:(feature_id) => {
-            if(selected_features.includes(feature_id)) return;
-            selected_features.push(feature_id);
-            features.menu.select(feature_id);
-            selectPointOnMap(feature_id);
-        },
-        unselect:() => {
-            selected_features.forEach((id)=>{
-                features.menu.unselect(id);
-                unselectPointOnMap(id);
-            });
-            selected_features = [];
-        },
-        isSelected:(feature_id) => {
-            return selected_features.includes(feature_id);
-        },
-        open: () => {  
-        },
-        load: async (layer_id) => {
-            let points = await database.load("Points", `points/${layer_id}`)
-            for(const point of points){
-                features.menu.add(point);
-                addPointToMap(point);
-                await properties.load(point.id);
-                await loadStyleRules(point.id);
+        load: async () => {
+            let features_data;
+            try{
+                features_data = await database.load("Points", `project_points/${current_project}`)
+            }catch(error){
+                return null
             }
+            for(const feature of features_data){
+                features.menu.add(feature);
+                addPointToMap(feature);
+            }
+            window.eventBus.emit('features:featuresLoaded', {});
+            return features_data;
         },
-        unload:() => {  
+        unload:() => {
+           
         },
         addPropertiesToFeature: async (properties, feature_id) => {
             properties.forEach(async function (property) {
@@ -200,23 +188,25 @@ export const features = (function(){
             }); 
         },
         addPoint: async (coordinates) => {
-            let layer_id = layers.getCurrent().id;
-            if (!layer_id) return;
+            if (!current_layer) return;
             const new_point = {
                 lon: coordinates[0], 
                 lat: coordinates[1], 
                 name: stringifyCoordinates(coordinates), 
                 foto: default_marker_icon, 
-                layer_id: layer_id
+                layer_id: current_layer
             };
-            const point_data = await database.add("point", `add_point/${layer_id}`, new_point);
+            const point_data = await database.add("point", `add_point/${current_layer}`, new_point);
             features.menu.add(point_data);
             addPointToMap(point_data);
-            const project_properties = await database.load("Project Properties", `project_properties/${projects.getCurrent()}`);
+            const project_properties = await database.load("Project Properties", `project_properties/${current_project}`);
+            console.log("GET PROJECT PROPERTIES:")
+            console.log(project_properties)
             await features.addPropertiesToFeature(project_properties, point_data.id);
-            loadStyleRules(point_data.id);
+            window.eventBus.emit('features:addFeature',{feature_id: point_data.id});
         },
         edit: async (updated_point_data, updated_custom_properties) => {
+            
             await database.update("point", `update_point/${updated_point_data.id}`, updated_point_data);
             editPointFromMap(updated_point_data);
             updated_custom_properties.forEach(async (new_custom_property) => {
@@ -227,7 +217,8 @@ export const features = (function(){
                 );
                 editPropertyFromPointOnMap(updated_point_data.id, updated_property);
             });
-            loadStyleRules(updated_point_data.id);
+            features.menu.edit(updated_point_data);
+            window.eventBus.emit('features:featureEdited',{feature_id: updated_point_data.id});
         },
         delete: async (point_id) => { 
             await database.delete("point", `delete_point/`, point_id);

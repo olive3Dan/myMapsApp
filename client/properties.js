@@ -1,8 +1,20 @@
-import { projects } from './projects.js';
 import {database} from './databaseUtils.js'
-import { createForm, createDataTablePopup } from './formUtils.js';
-import { addPropertyToPointOnMap, deletePropertyFromMap, editPropertyFromMap } from './mapTools.js';
+import { createForm, createDataTablePopup, newPopUpMessage } from './formUtils.js';
+import { addPropertyToPointOnMap, deletePropertyFromMap, addPropertyToMap, editPropertyFromMap } from './mapTools.js';
+import { loadStyleRules } from './main.js';
 export const properties = (function(){
+    let current_project = null;
+    window.eventBus.on('projects:openProject', (event) => {
+        current_project = event.project_id;
+    });
+    window.eventBus.on('projects:closeProject', (event) => {
+        current_project = null;
+    });
+    window.eventBus.on('properties:openPropertiesMenu', () => properties.menu.create());
+    window.eventBus.on('features:featuresLoaded', async () => {
+        await properties.load()
+    });
+    
     function substituteString(originalString, searchString, replacementString) {
         if (!originalString) return "";
         return originalString.split(searchString).join(replacementString);
@@ -29,8 +41,7 @@ export const properties = (function(){
         },
         edit:() => {},
         delete: async() => {
-            const project_id = projects.getCurrent();
-            const project_properties = await database.load("Project Properties", `project_properties/${project_id}`);
+            const project_properties = await database.load("Project Properties", `project_properties/${current_project}`);
             const properties_options = project_properties.map(item => ({
                 value: item.id,
                 text: item.name
@@ -48,20 +59,19 @@ export const properties = (function(){
     }
     const menu = {
         create: async() => {
-            const project_properties = await database.load("Project Properties", `project_properties/${projects.getCurrent()}`);
+            const project_properties = await database.load("Project Properties", `project_properties/${current_project}`);
             const actions = {
-                add:  () => {
-                    const property_data = {
-                        name:"",
-                        values:"",
-                        default_value:"",
-                        project_id:projects.getCurrent()
+                add: async () => {
+                    try{
+                        return  await properties.add("",[],"",current_project);
+                    }catch(error){
+                        throw error;
                     }
-                    const new_property = properties.add(property_data);
-                    return new_property;
                 }, 
-                edit:  (property_data) => properties.edit(property_data), 
-                delete:  (property_data) => properties.delete(property_data.id)
+                edit:  async (property) => {
+                    await properties.edit(property.id, property.name, property.values, property.default_value);
+                }, 
+                delete:  async (property_data) => await properties.delete(property_data.id)
             };
             createDataTablePopup(
                 "Project Properties", 
@@ -73,45 +83,55 @@ export const properties = (function(){
         }
     }
     return {
-        load: async(project_id) => {
-            const points_properties = await database.load("Point Properties", `points_properties_associations/${project_id}`);
+        load: async() => {
+            console.log("LOAD PROPERTIES:")
+            let points_properties;
+            try{
+                points_properties = await database.load("Point Properties", `points_properties_associations/${current_project}`);
+            }catch(error){
+                return null
+            }
             points_properties.forEach((pp) => {
-               /*addPropertyToPointOnMap(pp.point_id, {
+                addPropertyToPointOnMap(pp.point_id,{
                     id: pp.property_id,
                     name: pp.property_name,
                     value: pp.property_value,
                     options: pp.property_values,
                     default_value: pp.property_default_value
-                });*/
+                });
             });
-            console.log(points_properties);
+            window.eventBus.emit('properties:propertiesLoaded', {})
+            return points_properties;
         },
         add: async (name, values, default_value, project_id) => {
+            console.log("ADD PROPERTY:")
             const new_property_data = {
                 name: name,
-                values: JSON.stringify(values),
+                values: values,
                 default_value: default_value,
+                project_id:current_project
             }
             const property = await database.add("Property", `add_property/${project_id}`, new_property_data);
             await database.add("Point <=> property ", `add_project_property_association/${project_id}`, {property_id: property.id, value:property.default_value});
-            //addPropertyToMap(property);
+            addPropertyToMap(property);
             return property;
         },
         edit: async (id, name, values, default_value) => {
+            console.log("EDIT PROPERTY:")
             const updated_property_data = {
                 id:id,
                 name: name,
-                values: JSON.stringify(values),
+                values: values,
                 default_value: default_value,
             }
             let updated_property = await database.update("Property", `update_property/${updated_property_data.id}`, updated_property_data );
-            //editPropertyFromMap(updated_property);
+            editPropertyFromMap(updated_property);
             return updated_property;
             
         },
         delete: async (property_id) => {
-            return await database.delete("Property", `delete_property/`, property_id);
-            //deletePropertyFromMap(property_id); 
+            await database.delete("Property", `delete_property/`, property_id);
+            deletePropertyFromMap(property_id); 
         },
         form: form,
         menu: menu,
