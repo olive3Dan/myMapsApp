@@ -499,13 +499,40 @@ app.delete("/delete_point/:id", async (req, res) => {
 });
 
 //PROPERTIES
+function convertArrayToStringFormat(array) {
+  // Use JSON.stringify to convert the array to a JSON string
+  const jsonString = JSON.stringify(array);
+  
+  // Replace the single quotes with escaped double quotes
+  const formattedString = jsonString.replace(/"/g, '\\"');
+  
+  // Wrap the resulting string in double quotes
+  return `"${formattedString}"`;
+}
 app.get("/project_properties/:project_id", async (req, res) => {
   try {
-    const result = await pool.query(
-        `SELECT id, name, values, default_value, project_id FROM properties where project_id = $1;`, 
-        [req.params.project_id]
-    );
     
+    const result = await pool.query(
+        `SELECT DISTINCT
+        properties.id, 
+        properties.name,
+        properties.values, 
+        properties.default_value
+      FROM 
+        projects 
+      INNER JOIN 
+        layers ON projects.id = layers.project_id
+      INNER JOIN 
+        points ON points.layer_id = layers.id 
+      INNER JOIN 
+        points_properties ON points_properties.point_id = points.id 
+      INNER JOIN 
+        properties ON properties.id = points_properties.property_id
+      WHERE 
+        projects.id = $1;`, 
+       [req.params.project_id]
+    );
+    console.log(result.rows)
     const properties = result.rows.map(row => ({
       ...row,
       values: JSON.parse(row.values)
@@ -539,41 +566,43 @@ app.get("/properties/:point_id", async (req, res) => {
     res.status(500).json({ error: "Internal server error in properties get" });
   }
 });
-app.post("/add_property/:project_id", async (req, res) => {
+app.post("/add_property", async (req, res) => {
   try {
+    const { name, values, default_value } = req.body;
+
+    console.log("Request Body:", req.body);
+    values_string = convertArrayToStringFormat(values);
+    console.log(values_string)
     const result = await pool.query(
-      `INSERT INTO properties (name, values, default_value, project_id)
-       VALUES($1, $2, $3, $4) 
+      `INSERT INTO properties (name, values, default_value)
+       VALUES ($1, $2, $3) 
        RETURNING *`,
-      [
-        req.body.name,
-        JSON.stringify(req.body.values),  // Ensure values are stored as JSON string
-        req.body.default_value,
-        req.params.project_id
-      ]
+      [name, values_string, default_value]
     );
-    
     const newProperty = {
       ...result.rows[0],
-      values: JSON.parse(result.rows[0].values)  // Convert values back to array for the response
+      values: JSON.parse(result.rows[0].values)
     };
 
-    console.log(newProperty);
-    res.status(201).json(newProperty);
+    console.log("ADDED PROPERTY: ", newProperty);
+    res.status(201).json(result.rows[0]);
   } catch (error) {
-    console.error(error);
+    console.error("Error adding property:", error);
     res.status(500).json({ error: "Internal server error post property" });
   }
 });
 app.put("/update_property/:id", async (req, res) => {
   try {
-    console.log("PROPERTY BEFORE UPDATE:");
-    console.log( req.body.values);
+    const { id, name, values, default_value } = req.body;
+    console.log("Request Body:", req.body);
+    const values_string = convertArrayToStringFormat(values);
+    console.log(values_string)
     const result = await pool.query(
       "UPDATE properties SET name = $1, values = $2, default_value = $3 WHERE id = $4 RETURNING *",
-      [req.body.name, JSON.stringify(req.body.values), req.body.default_value,  req.params.id]
+      [name, values_string, default_value, id]
     );
     const updatedProperty = result.rows[0];
+    
     updatedProperty.values = JSON.parse(updatedProperty.values)
     console.log("PROPERTY UPDATE: ");
     console.log(updatedProperty);
@@ -607,6 +636,7 @@ app.delete("/delete_property/:id", async (req, res) => {
 //POINTS_PROPERTIES
 app.get("/points_properties_associations/:project_id", async (req, res) => {
   try {
+    
     const result = await pool.query(`
       SELECT 
         points.id as point_id,
@@ -614,7 +644,7 @@ app.get("/points_properties_associations/:project_id", async (req, res) => {
         properties.name as property_name, 
         properties.values as property_values, 
         properties.default_value as property_default_value, 
-        points_properties.value as point_property_value 
+        points_properties.value as property_value 
       FROM 
         projects 
       INNER JOIN 
@@ -629,12 +659,13 @@ app.get("/points_properties_associations/:project_id", async (req, res) => {
         projects.id = $1;`, 
       [req.params.project_id]
     );
-    
+    console.log("PROPERTY_VALUES: ");
+    console.log(result.rows);
     const properties = result.rows.map(row => ({
       ...row,
       property_values: JSON.parse(row.property_values)
     }));
-
+    console.log(properties)
     res.status(200).json(properties);
   } catch (error) {
     console.error(error);
@@ -663,7 +694,6 @@ app.get("/point_properties_associations/:point_id", async (req, res) => {
     res.status(500).json({ error: "Internal server error in getting specific point properties" });
   }
 });
-
 app.get("/points_properties_associations/:project_id/:property_id", async (req, res) => {
   try {
     const result = await pool.query(
@@ -688,6 +718,7 @@ app.get("/points_properties_associations/:project_id/:property_id", async (req, 
 });
 app.post("/add_point_property_association/:point_id", async (req, res) => {
   try {
+    
     const result = await pool.query(
       `INSERT INTO points_properties (point_id, property_id, value)
        VALUES ($1, $2, $3)
@@ -773,71 +804,152 @@ app.delete("/delete_point_property_association/:project_id/:property_id", async 
 });
 
 //STYLES
-app.get("/styles/:project_id", async (req, res) => {
+app.get("/properties_styles/:project_id", async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM styles WHERE project_id = $1;",[req.params.project_id]);
+    const result = await pool.query(`
+    SELECT DISTINCT
+      p.id AS id, 
+      s.id AS style_id, 
+      p.name AS property_name, 
+      p.values AS property_values, 
+      ps.value AS condition, 
+      s.icon, 
+      s.size, 
+      s.font
+    FROM 
+      points_properties pp
+    INNER JOIN 
+      properties_styles ps ON pp.property_id = ps.property_id
+    INNER JOIN 
+      properties p ON ps.property_id = p.id
+    INNER JOIN 
+      styles s ON ps.style_id = s.id
+    INNER JOIN 
+      points pt ON pp.point_id = pt.id
+    INNER JOIN 
+      layers l ON pt.layer_id = l.id
+    INNER JOIN 
+      projects pr ON l.project_id = pr.id
+    WHERE pr.id = $1;`, [req.params.project_id]);
+    
+    const property_styles = result.rows.map(row => ({
+      ...row,
+      property_values: JSON.parse(row.property_values)
+    }));
+    res.status(200).json(property_styles);
+    console.log(property_styles);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal server error in properties_styles get" });
+  }
+});
+app.get("/points_styles/:project_id", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT 
+        pp.point_id, 
+        pp.property_id, 
+        pp.value,
+        ps.style_id,
+        s.icon,
+        s.size,
+        s.font
+      FROM 
+        points_properties pp
+      INNER JOIN 
+        properties_styles ps
+        ON ps.property_id = pp.property_id AND pp.value = ps.value
+      INNER JOIN 
+        styles s
+        ON s.id = ps.style_id
+      INNER JOIN 
+        points p
+        ON p.id = pp.point_id
+      INNER JOIN 
+        layers l
+        ON l.id = p.layer_id
+      INNER JOIN 
+        projects pr
+        ON pr.id = l.project_id
+      WHERE 
+        pr.id = $1;`,
+      [req.params.project_id]
+    );
+    console.log("POINT STYLES: ");
+    console.log(result.rows);
     res.status(200).json(result.rows);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error in styles get" });
+    res.status(500).json({ error: "Internal server error in points_styles get" });
   }
 });
-app.get("/styles/:style_id", async (req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT * FROM styles WHERE id = $1;",
-      [req.params.style_id]
-    );
-
-    if (result.rows.length === 0) {
-      res.status(404).json({ error: "Style not found" });
-    } else {
-      res.status(200).json(result.rows[0]);
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal server error in style get" });
-  }
-});
-
 app.post("/add_style", async (req, res) => {
   try {
     const result = await pool.query(
-      "INSERT INTO styles (name, condition, value, priority, project_id) VALUES ($1, $2, $3, $4, $5) RETURNING *;",
-      [req.body.name, req.body.condition, req.body.value, req.body.priority, req.body.project_id]
+      "INSERT INTO styles (icon, size, font) VALUES ($1, $2, $3) RETURNING *;",
+      [req.body.icon, req.body.size, req.body.font]
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error in style post" });
+    res.status(500).json({ error: "Internal server error in add_style post" });
   }
 });
-
-app.put("/delete_style/:style_id", async (req, res) => {
+app.post("/add_property_style", async (req, res) => {
   try {
     const result = await pool.query(
-      "UPDATE styles SET name = $1, condition = $2, value = $3, priority = $4 WHERE id = $5 RETURNING *;",
-      [
-        req.body.name,
-        req.body.condition,
-        req.body.value,
-        req.body.priority,
-        req.params.style_id,
-      ]
+      "INSERT INTO properties_styles (property_id, style_id, value) VALUES ($1, $2, $3) RETURNING *;",
+      [req.body.property_id, req.body.style_id, req.body.value]
     );
-
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal server error in add_property_style post" });
+  }
+});
+app.put("/update_style/:style_id", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `UPDATE styles
+       SET icon = $1, size = $2, font = $3
+       WHERE id = $4
+       RETURNING *;`,
+      [req.body.icon, req.body.size, req.body.font, req.params.style_id]
+    );
     if (result.rows.length === 0) {
-      res.status(404).json({ error: "Style not found" });
+      res.status(404).json({ error: 'Style not found' });
     } else {
+      console.log("STYLE UPDATE: ");
+      console.log(result.rows[0]);
       res.status(200).json(result.rows[0]);
     }
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error in style put" });
+    res.status(500).json({ error: "Internal server error in update_style" });
   }
 });
-
-app.delete("/styles/:style_id", async (req, res) => {
+app.put("/update_properties_styles/:property_id/:style_id", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `UPDATE properties_styles
+      SET value = $1
+      WHERE style_id = $2 AND property_id = $3
+      RETURNING *;`,
+      [req.body.value, req.params.style_id, req.params.property_id]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Property-style not found' });
+    } else {
+      console.log("PROPERTY_STYLE UPDATE: ");
+      console.log(result.rows[0]);
+      res.status(200).json(result.rows[0]);
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal server error in update_properties_styles" });
+  }
+});
+app.delete("/delete_style/:style_id", async (req, res) => {
   try {
     const result = await pool.query("DELETE FROM styles WHERE id = $1;", [
       req.params.style_id
@@ -849,7 +961,22 @@ app.delete("/styles/:style_id", async (req, res) => {
     }
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error in style delete" });
+    res.status(500).json({ error: "Internal server error in delete_style" });
+  }
+});
+app.delete("/delete_property_style/:property_id/:style_id", async (req, res) => {
+  try {
+    const result = await pool.query("DELETE FROM properties_styles WHERE property_id = $1 AND style_id = $2;", [
+      req.params.property_id, req.params.style_id
+    ]);
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: "Property-style not found" });
+    } else {
+      res.status(204).send();
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal server error in delete_property_style" });
   }
 });
 

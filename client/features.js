@@ -51,6 +51,7 @@ export const features = (function(){
         return input_fields;
     }
     function generatePropertiesInputFieldsData(properties) {
+        console.log("EDIT FEATURE::", properties);
         const inputFields = [];
         properties.forEach(property => {
             const inputField = {
@@ -58,21 +59,30 @@ export const features = (function(){
                 id: property.name + "InputField",
                 placeholder: property.name,
                 autocomplete: 'off',
-                label:property.name,
+                label: property.name,
                 value: property.value
             };
-            if (Array.isArray(property.options) && property.options.length > 0) {
+            
+            if (Array.isArray(property.values) && property.values.length > 0) {
                 inputField.type = 'select';
-                inputField.options = property.options.map(option => ({
-                    value: option,
-                    text: option
+                inputField.options = property.values.map(value => ({
+                    value: value,
+                    text: value
                 }));
+                if (property.value) {
+                    const selectedOption = inputField.options.find(opt => opt.value == property.value);
+                    if (selectedOption) {
+                        selectedOption.selected = true;
+                    }
+                }
             }
+    
             inputFields.push(inputField);
         });
         return inputFields;
     }
     function getPropertiesFormValues(feature){
+        console.log("getPropertiesFormValues,  custom properties: ", feature.getProperties().custom_properties)
         const properties = [ ...feature.getProperties().custom_properties ];
         properties.forEach((property) => {
             const input_field_value = document.getElementById(property.name + "InputField").value;
@@ -98,6 +108,7 @@ export const features = (function(){
     }
     function generateInputFields(feature){
         const properties = feature.getProperties();
+        
         const point_fields_data = generatePointInputFieldsData(feature, ["name", "foto", 'coordinates'] );
         
         const custom_properties_fields_data = generatePropertiesInputFieldsData(properties.custom_properties);
@@ -111,9 +122,9 @@ export const features = (function(){
             
         },
         edit: (feature) => {
+            
             const input_fields_data = generateInputFields(feature);
-            console.log("EDIT FEATURE: ")
-            console.log(feature);
+            
             createForm('editPointFormContainer', 'editPointForm', 'Edit Point', input_fields_data, 'OK', async function (event){
                 event.preventDefault(); 
                 let updated_point_data = getPointFormValues(feature, ["name", "foto", 'coordinates'] );
@@ -206,7 +217,6 @@ export const features = (function(){
             window.eventBus.emit('features:addFeature',{feature_id: point_data.id});
         },
         edit: async (updated_point_data, updated_custom_properties) => {
-            
             await database.update("point", `update_point/${updated_point_data.id}`, updated_point_data);
             editPointFromMap(updated_point_data);
             updated_custom_properties.forEach(async (new_custom_property) => {

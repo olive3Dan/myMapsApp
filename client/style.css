@@ -87,22 +87,23 @@ body {
   position: fixed;
   top: 10px;
   left: 10px;
-  width:250px;
+  width:300px;
   background: rgba(220, 219, 219, 0.8);
   padding: 15px;
   border-radius: 0px;
   box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
   z-index: 1000; 
 }
-#projectLabelContainer {
-  width:250px;
+#project-label-container {
+  width: 100%;  /* Full width */
+  overflow: hidden;  /* Clear floats */
   
 }
 
 #project-label {
-  display: inline-block;
   font-size: 34px;
   color: #333;
+  float:left;
 }
 
 .project-description {
@@ -110,8 +111,10 @@ body {
   font-style: italic;
   color: #666;
 }
+#projects-context-menu-button{
+  float:right;
+}
 
-  
 /*CONTEXT MENU*/
 .context-menu-button {
   position: relative; 
@@ -188,11 +191,17 @@ body {
   transform: translateX(-50%);
 }
 /*LAYERS */
+#layers-container-label{
+  font-size: 24px;
+  color: #333;
+  margin: 10px;
+  display:inline-block;
+}
 #layers-container{
   position: fixed;
   top: 300px;
   left: 10px;
-  width:250px;
+  width:300px;
   
   background: rgba(220, 219, 219, 0.8);
   

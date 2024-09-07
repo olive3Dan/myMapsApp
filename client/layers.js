@@ -70,9 +70,11 @@ export const layers = (function(){
     }
     const menu = {
         create: () => {
-            const layers_container = createElementWithAttributes('div', {id:'layers-container', innerHTML:'Layers'});
+            const layers_container = createElementWithAttributes('div', {id:'layers-container'});
+            const layers_container_label = createElementWithAttributes('div', {id:'layers-container-label', innerHTML:"Layers"})
             const addLayerButton = createButton("Add Layer", "add-layer-button", ["fa-plus", "fa-layer-group"],["formButton"], () => layers.forms.add() );
-            layers_container.append(addLayerButton); 
+            layers_container.append(layers_container_label); 
+            layers_container.append(addLayerButton);
             document.body.append(layers_container);   
         },
         remove: ()=> {
@@ -103,7 +105,7 @@ export const layers = (function(){
             
             accordion_header.addEventListener("click", function(event) {
                 if (event.target.tagName === 'LABEL') {
-                    event.preventDefault(); // This will prevent the checkbox from being checked
+                    event.preventDefault();
                     var panel = this.nextElementSibling;
                     toggleAccordion(panel);
                 }
@@ -111,8 +113,16 @@ export const layers = (function(){
             const accordion_buttons_container = createElementWithAttributes('div', {id: 'accordion-buttons-container', class:'accordion-buttons'});
             const checkbox = createElementWithAttributes('input', {type:'checkbox', id:`layer-checkbox-${layer_id}`, class:'accordion-title'});
             const checkbox_label = createElementWithAttributes('label', {htmlFor: layer_id, class:'accordion-label', textContent: layer_name});
-            const deleteButton = createButton('', '', ['fa-trash'],["formButton", 'accordion-delete-btn'], ()=>layers.forms.delete(layer_id));
-            accordion_buttons_container.appendChild(deleteButton);
+            //const deleteButton = createButton('', '', ['fa-trash'],["formButton", 'accordion-delete-btn'], ()=>layers.forms.delete(layer_id));
+            let contextMenuButton = createButton("","layers-context-menu-button", ['fa-bars'], ['context-menu-button'], async () => {
+                const menu_items = []
+                menu_items.push(
+                    { label: 'Rename Layer', iconClasses:['fa-solid','fa-pen-to-square'], onClick: () => {}},
+                    { label: 'Delete Layer', iconClasses:['fa-solid', 'fa-trash'], onClick: () => {layers.forms.delete(layer_id)}}
+                );
+                createContextMenu(contextMenuButton, menu_items, { menuId: 'my-custom-menu', position: 'bottom-right' });
+            }); 
+            accordion_buttons_container.appendChild(contextMenuButton);
             const accordion_content = createElementWithAttributes('div', {id: `layer-content-${layer_id}`, class:'accordion-content'});
             accordion_header.append(checkbox, checkbox_label, accordion_buttons_container);
             accordion_item.append(accordion_header, accordion_content);

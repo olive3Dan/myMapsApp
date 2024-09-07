@@ -13,7 +13,6 @@ import { Overlay } from 'ol';
 
 import { createButton, createElementWithAttributes, createPropertyTable } from './formUtils.js';
 import { findPropertyInObject } from './menus.js';
-import { loadStyleRules } from './main.js';
 //MISC
 export function stringifyCoordinates(coordinates) {
     const [x, y] = coordinates;
@@ -38,8 +37,8 @@ const project_group = new LayerGroup({
     title: 'Project Layers'
 });
 const default_point_style_data = {
-   normal: {img:"./icons/red-dot.png", scale: 1.5, text:"14px sans-serif"},
-   highlighted:{img:"./icons/yellow-dot.png", scale: 1.75, font:"14px sans-serif"}
+   normal: {icon:"./icons/red-dot.png", size: 1.5, font:"14px sans-serif"},
+   highlighted:{icon:"./icons/yellow-dot.png", size: 1.75, font:"14px sans-serif"}
 }
 let adding_point_mode = false;
 let selected_features = [];
@@ -52,15 +51,12 @@ window.eventBus.on('layers:loadLayer', (event) => addLayerToMap(event.layer_id))
 //FEATURES
 window.eventBus.on('features:unselectAll', () => unselectAll());
 window.eventBus.on('features:selectFeature', (event) => selectPointOnMap(event.feature_id));
-window.eventBus.on('styles:loadPointStyle', (event) => {
-    applyStyleRulesToPointOnMap(event.feature_id, event.style_rules);
-});
+
 //PROPERTIES
 window.eventBus.on('properties:addProperty', (event) => {
     
 });
 //STYLES
-window.eventBus.on('styles:loadStyles', (event) => {applyStyleRulesToMap(event.style_rules)});
 document.addEventListener('keydown', function(event) {
     if (event.key === 'Delete') {
         selected_features.forEach( feature_id => { 
@@ -173,7 +169,6 @@ function getHoveredFeature(event){
     if(features.length > 0) return features[0];
     return null;
 }
-
 export function forEachFeature(callback) {
     const layers = map.getLayers().getArray();
     for (const layer of layers) {
@@ -290,14 +285,7 @@ export function unselectPointOnMap(point_id){
     popupOverlay.setElement(null);
 }
 
-function setPointStyle(point, style_data){
-    point.set('style_normal',  newPointStyle(style_data.normal));
-    point.set('style_highlighted',  newPointStyle(style_data.highlighted));
-    if(isSelected(point.get('id'))){
-        setPointStateOnMap(point, 'highlighted');
-    }
-    setPointStateOnMap(point, 'normal');
-}
+
 
 //PROPERTIES
 export function showPointProperties(point_id) {
@@ -331,7 +319,7 @@ export function showPointProperties(point_id) {
 }
 export function addPropertyToPointOnMap(point_id, point_property) {
     console.log("ADD PROPERTY: "+point_property.id+" TO POINT: "+point_id)
-    console.log(point_property.options);
+    console.log(point_property);
     const point = getPointFromMap(point_id);
     point.get('custom_properties').push(point_property);
     if (isSelected(point_id)){
@@ -348,7 +336,7 @@ export function deletePropertyFromPointOnMap(point_id, property_id) {
     console.log("DELETE PROPERTY: " +property_id+ " FROM POINT: " + point_id);
 }
 export function editPropertyFromPointOnMap(point_id, new_property_data) {
-    console.log("EDIT PROPERTY: " +new_property_data.property_id+ " FROM POINT: " + point_id);
+    console.log("EDIT PROPERTY: " +new_property_data.id+ " FROM POINT: " + point_id);
     console.log(new_property_data);
     const point = getPointFromMap(point_id);
     const custom_properties = point.getProperties().custom_properties;
@@ -369,10 +357,7 @@ export function editPropertyFromPointOnMap(point_id, new_property_data) {
 function removePropertyFromPoint(point, property_id) {
     
 }
-
 export function addPropertyToMap(new_property){
-    console.log("ADD PROPERTY: " + new_property.id + " TO MAP")
-    console.log(new_property.options);
     forEachFeature(point => {
         addPropertyToPointOnMap(point.get('id'), new_property);
     });    
@@ -390,48 +375,17 @@ export function deletePropertyFromMap(property_id) {
 }
 
 //STYLES
-export function applyStyleRulesToPointOnMap(point_id, style_rules){
-    
-    const point = getPointFromMap(point_id);
-    if(!point) throw new Error("Ponto não encontrado");
-    let rule_applies = false;
-    style_rules.forEach((style_rule) => {
-        if(applyStyleRuleToPointOnMap(style_rule, point)){
-            rule_applies = true;
-        }
-    });
-    if(!rule_applies){
-        setPointStyle(point, default_point_style_data);
-    }
-
-}
-export  function applyStyleRuleToPointOnMap(style_rule, point){
-    console.log("RULE: " +style_rule.id+ "POINT: "+point.id)
-    const style_rule_applies_to_point = styleRuleAppliesToPoint(style_rule, point);
-    if(style_rule_applies_to_point){
-        const style_data = JSON.parse(style_rule.value);
-        setPointStyle(point, style_data);
-        return true;
-    }
-    return false;
-}
-export function styleRuleAppliesToPoint(style_rule, point){
-    const style_condition = JSON.parse(style_rule.condition);
-    return point.get('custom_properties').some((custom_property) => {
-        return custom_property.id == style_condition.property_id && custom_property.value == style_condition.value
-    });
-}
-function newPointStyle(inputObj) {
+function newPointStyle(style_data) {
     const style = {
         image: new Icon({
-            src: inputObj.img,
+            src: style_data.icon,
             anchor: [0.5, 1],
-            scale: inputObj.scale,
+            scale: style_data.size,
         }),
         text: new Text({
-            font: inputObj.font,
+            font: style_data.font,
             offsetX: 0, 
-            offsetY: (-40 * inputObj.scale),  
+            offsetY: (-40 * style_data.size),  
             fill: new Fill({
                 color: '#000',
             }),
@@ -444,18 +398,41 @@ function newPointStyle(inputObj) {
     return new Style(style);
     
 }
-export function applyStyleRulesToMap(style_rules){
-     const points = getPointsFromMap();
-     for(const point of points){
-        applyStyleRulesToPointOnMap(point.get('id'), style_rules);
-     }
+function setPointStyle(point_id, style){
+    const point = getPointFromMap(point_id);
+    const style_highlighted = {
+        ...style,
+        size: style.size * 1.5
+    };
+    point.set('style_normal',  newPointStyle(style));
+    point.set('style_highlighted',  newPointStyle(style_highlighted));
+    if(isSelected(point.get('id'))){
+        setPointStateOnMap(point, 'highlighted');
+    }
+    setPointStateOnMap(point, 'normal');
 }
-export function editStyleRuleFromMap(){
-
+export function addStyleToPointOnMap(point_style){
+    
+    if(!point_style.style_id){
+        deleteStyleFromPointOnMap(point_style.point_id)
+        return;
+    }
+    setPointStyle(point_style.point_id, point_style);
+    console.log("ADD STYLE: ", point_style);
 }
-export function deleteStyleRuleFromMap(style_rule_id){
+export function deleteStyleFromPointOnMap(point_id){
+    console.log("DELETE STYLE FROM POINT: " + point_id);
+    setPointStyle(point_id, default_point_style_data.normal)
     
 }
+export function editStyleOnMap(point_id, style){
+    console.log("RULE: " + style.style_id + "POINT: " + point_id);
+   
+}
+
+
+
+
 function getIconDimensions(iconPath) {
     return new Promise((resolve, reject) => {
         const image = new Image();

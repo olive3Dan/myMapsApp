@@ -1,7 +1,7 @@
 import {database} from './databaseUtils.js'
 import { createForm, createDataTablePopup, newPopUpMessage } from './formUtils.js';
 import { addPropertyToPointOnMap, deletePropertyFromMap, addPropertyToMap, editPropertyFromMap } from './mapTools.js';
-import { loadStyleRules } from './main.js';
+
 export const properties = (function(){
     let current_project = null;
     window.eventBus.on('projects:openProject', (event) => {
@@ -14,7 +14,6 @@ export const properties = (function(){
     window.eventBus.on('features:featuresLoaded', async () => {
         await properties.load()
     });
-    
     function substituteString(originalString, searchString, replacementString) {
         if (!originalString) return "";
         return originalString.split(searchString).join(replacementString);
@@ -60,23 +59,44 @@ export const properties = (function(){
     const menu = {
         create: async() => {
             const project_properties = await database.load("Project Properties", `project_properties/${current_project}`);
+            console.log(project_properties);
             const actions = {
                 add: async () => {
-                    try{
-                        return  await properties.add("",[],"",current_project);
-                    }catch(error){
-                        throw error;
-                    }
+                   return  await properties.add("", [], "");
                 }, 
                 edit:  async (property) => {
-                    await properties.edit(property.id, property.name, property.values, property.default_value);
+                   
+                   await properties.edit(property.id, property.name, property.values.split(";"), property.default_value);
                 }, 
                 delete:  async (property_data) => await properties.delete(property_data.id)
             };
             createDataTablePopup(
                 "Project Properties", 
-                ['Id','Name', 'Values', 'Default Value'], 
-                ['id', 'name', 'values', 'default_value'],
+                ['Name', 'Values', 'Default Value'], 
+                [{
+                    name:"id",
+                    inputType:"text",
+                    options:[],
+                    visible:false
+                },
+                {
+                    name:"name",
+                    inputType:"text",
+                    options:[],
+                    visible:true
+                },
+                {
+                    name:"values",
+                    inputType:"text",
+                    options:[],
+                    visible:true
+                },
+                {
+                    name:"default_value",
+                    inputType:"text",
+                    options:[],
+                    visible:true
+                }],
                 project_properties,
                 actions
             );
@@ -96,24 +116,24 @@ export const properties = (function(){
                     id: pp.property_id,
                     name: pp.property_name,
                     value: pp.property_value,
-                    options: pp.property_values,
+                    values: pp.property_values,
                     default_value: pp.property_default_value
                 });
             });
             window.eventBus.emit('properties:propertiesLoaded', {})
             return points_properties;
         },
-        add: async (name, values, default_value, project_id) => {
+        add: async (name, values, default_value) => {
             console.log("ADD PROPERTY:")
             const new_property_data = {
                 name: name,
                 values: values,
-                default_value: default_value,
-                project_id:current_project
+                default_value: default_value
             }
-            const property = await database.add("Property", `add_property/${project_id}`, new_property_data);
-            await database.add("Point <=> property ", `add_project_property_association/${project_id}`, {property_id: property.id, value:property.default_value});
+            const property = await database.add("Property", `add_property`, new_property_data);
+            await database.add("Point <=> property ", `add_project_property_association/${current_project}`, {property_id: property.id, value:property.default_value});
             addPropertyToMap(property);
+            window.eventBus.emit('properties:propertyAdded', {});
             return property;
         },
         edit: async (id, name, values, default_value) => {
@@ -125,13 +145,16 @@ export const properties = (function(){
                 default_value: default_value,
             }
             let updated_property = await database.update("Property", `update_property/${updated_property_data.id}`, updated_property_data );
+            console.log("UPDATED PROPERTY FROM DATABASE: ", updated_property)
             editPropertyFromMap(updated_property);
+            window.eventBus.emit('properties:propertyEdited', {});
             return updated_property;
             
         },
         delete: async (property_id) => {
             await database.delete("Property", `delete_property/`, property_id);
             deletePropertyFromMap(property_id); 
+            window.eventBus.emit('properties:propertyDeleted', {});
         },
         form: form,
         menu: menu,

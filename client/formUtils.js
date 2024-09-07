@@ -13,17 +13,14 @@ export function createPropertyTable(custom_properties) {
         const row = document.createElement('tr');
         const nameCell = document.createElement('td');
         const valueCell = document.createElement('td');
-
         nameCell.textContent = custom_property.name;
         valueCell.textContent = custom_property.value;
-
+       
         row.append(nameCell, valueCell);
         propertyTable.appendChild(row);
     });
     return propertyTable;
 }
-
-
 export function createElementWithAttributes(tagName, attributes) {
     const element = document.createElement(tagName);
     for (const key in attributes) {
@@ -41,7 +38,6 @@ export function createElementWithAttributes(tagName, attributes) {
     }
     return element;
 }
-
 export function createButton(text, id, iconClasses, buttonClasses, clickHandler) {
     const button = document.createElement("button");
     button.id = id;
@@ -65,12 +61,16 @@ export function createButton(text, id, iconClasses, buttonClasses, clickHandler)
     return button;
 }
 export function addOptionsToSelect(select, data) {
+    if(!select) {
+        console.log("NO SELECT", select)
+        console.log("TO PUT", data)
+    }
     while (select.firstChild) {
         select.removeChild(select.firstChild);
     }
     data.forEach(item => {
         select.appendChild(createElementWithAttributes('option', {
-            value: JSON.stringify(item.value),
+            value: item.value,
             text: item.text
         }));
     });
@@ -140,42 +140,84 @@ export function createForm(containerId, formId, formTitle, inputFields, buttonTe
     document.body.appendChild(formContainer);
     
 }
-export function createContextMenu(contextButtonId, menuItems) {
-    const contextButton = document.getElementById(contextButtonId);
-    let contextMenu = document.getElementById("projects-context-menu");
-    if (contextMenu) return;    
-    contextMenu = createElementWithAttributes('div', {id: "projects-context-menu",class: "context-menu"});
-    const rect = contextButton.getBoundingClientRect();
-    contextMenu.style.top = `${rect.bottom}px`;
-    contextMenu.style.left = `${rect.left}px`;
+let activeContextMenu = null;  // Keep track of the currently active context menu
+
+export function createContextMenu(targetElement, menuItems, options = {}) {
+    const { menuId = 'context-menu', menuClass = 'context-menu', position = 'bottom-left' } = options;
+    
+    // If there's an active context menu, remove it before creating a new one
+    if (activeContextMenu) {
+        activeContextMenu.remove();
+        document.removeEventListener('click', handleOutsideClick);  // Clean up previous event listener
+        activeContextMenu = null;
+    }
+
+    // Create a new context menu
+    let contextMenu = document.createElement('div');
+    contextMenu.id = menuId;
+    contextMenu.className = menuClass;
+    
+    const rect = targetElement.getBoundingClientRect();  // Get the target element's dimensions
+
+    // Positioning the menu
+    if (position === 'bottom-left') {
+        contextMenu.style.top = `${rect.bottom}px`;
+        contextMenu.style.left = `${rect.left}px`;
+    } else if (position === 'bottom-right') {
+        contextMenu.style.top = `${rect.bottom}px`;
+        contextMenu.style.left = `${rect.right}px`;
+    } else if (position === 'top-left') {
+        contextMenu.style.top = `${rect.top - contextMenu.offsetHeight}px`;
+        contextMenu.style.left = `${rect.left}px`;
+    } else if (position === 'top-right') {
+        contextMenu.style.top = `${rect.top - contextMenu.offsetHeight}px`;
+        contextMenu.style.left = `${rect.right}px`;
+    }
+
+    // Adding menu items dynamically
     menuItems.forEach(item => {
         const menuItem = document.createElement('div');
+        
+        // Add icons if they exist
         if (Array.isArray(item.iconClasses)) {
             const icon = document.createElement("i");
-            item.iconClasses.forEach(iconClass => {
-                icon.classList.add(iconClass);
-            });
+            item.iconClasses.forEach(iconClass => icon.classList.add(iconClass));
             icon.style.margin = "10px"; 
             menuItem.appendChild(icon);
         }
+
         menuItem.innerHTML += item.label;
         menuItem.classList.add('context-menu-item');
-        menuItem.addEventListener('click', item.onClick);
+
+        // Add click handler for the menu item
+        menuItem.addEventListener('click', () => {
+            item.onClick();
+            contextMenu.remove();  // Close the menu on item click
+        });
+
         contextMenu.appendChild(menuItem);
     });
+
     document.body.appendChild(contextMenu);
+
+    // Set the active context menu to the current one
+    activeContextMenu = contextMenu;
+
+    // Function to handle clicking outside of the menu
     function handleOutsideClick(event) {
-        if (!contextButton.contains(event.target) && !contextMenu.contains(event.target)) {
+        if (!targetElement.contains(event.target) && !contextMenu.contains(event.target)) {
             contextMenu.remove();
+            activeContextMenu = null;  // Reset the active context menu
+            document.removeEventListener('click', handleOutsideClick);  // Clean up event listener
         }
     }
+
     document.addEventListener('click', handleOutsideClick);
-    
-    
-    
 }
+/*
 export function createDataTablePopup(title, headers, visible_fields, values, actions) {
     const popup = createElementWithAttributes('div', { class: ["popupForm"] });
+    //HEAD
     const header = createElementWithAttributes('h2', { textContent: title });
     popup.appendChild(header);
     const tableContainer = createElementWithAttributes('div', { class: ['table-container'] });
@@ -190,6 +232,7 @@ export function createDataTablePopup(title, headers, visible_fields, values, act
     theadRow.appendChild(actionsTh);
     thead.appendChild(theadRow);
     table.appendChild(thead);
+    //BODY
     const tbody = createElementWithAttributes('tbody', { id: 'table-body' });
     values.forEach(value => {
         addRow(tbody, visible_fields, value, actions);
@@ -221,10 +264,12 @@ function addRow(tbody, visible_fields, value, actions) {
     const save_button = createButton('', '', ['fa-floppy-disk'], ["formButton"], async function () {
         const row = this.closest('tr');
         const object_data = getRowData(row);
+        object_data.values = object_data.values.split(";");
         await actions.edit(object_data);
         save_button.style.display = 'none';
     });
     save_button.style.display = 'none';
+    
     const delete_button = createButton('', '', ['fa-trash'], ["formButton"], async function () {
         const row = this.closest('tr');
         const object_data = getRowData(row);
@@ -242,30 +287,186 @@ function addRow(tbody, visible_fields, value, actions) {
         save_button.style.display = 'inline-block';
     });
 }
+function getRowData(row) {
+    const data = {};
+    row.querySelectorAll('td[data-field]').forEach(cell => {
+        const select = cell.querySelector('select');
+        data[cell.dataset.field] = select ? select.value : cell.textContent;
+    });
+    return data;
+}*/
+export function createDataTablePopup(title, headers, visible_fields, values, actions) {
+    const popup = createElementWithAttributes('div', { class: ["popupForm"] });
 
-function isStringArray(text) {
-    try {
-        const options = JSON.parse(text);
-        if (Array.isArray(options)) {
-            return true;
+    // HEAD
+    const header = createElementWithAttributes('h2', { textContent: title });
+    popup.appendChild(header);
+
+    const tableContainer = createElementWithAttributes('div', { class: ['table-container'] });
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    const theadRow = document.createElement('tr');
+
+    headers.forEach(field => {
+       const th = createElementWithAttributes('th', { textContent: field });
+       theadRow.appendChild(th);
+    });
+
+    const actionsTh = createElementWithAttributes('th', { textContent: 'Actions' });
+    theadRow.appendChild(actionsTh);
+    thead.appendChild(theadRow);
+    table.appendChild(thead);
+
+    // BODY
+    const tbody = createElementWithAttributes('tbody', { id: 'table-body' });
+    values.forEach(value => {
+        addRow(tbody, visible_fields, value, actions);
+    });
+
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+    popup.appendChild(tableContainer);
+
+    const buttonsContainer = document.createElement('div');
+    const addButton = createButton('Add Row', 'add-button', [], [], async () => {
+        const new_object = await actions.add();
+        addRow(tbody, visible_fields, new_object, actions);
+        
+    });
+
+    const closeButton = createButton('Close', 'close-button', [], [], () => document.body.removeChild(popup));
+    buttonsContainer.append(addButton, closeButton);
+    popup.appendChild(buttonsContainer);
+    document.body.appendChild(popup);
+}
+
+function addRow(tbody, fields, value, actions) {
+    const row = document.createElement('tr');
+    row.dataset.rowData = JSON.stringify(value);
+
+    let dependentFields = [];
+    fields.forEach(field => {
+        const td = document.createElement('td');
+        td.dataset.name = field.name;
+        if (!field.visible) {
+            td.style.display = 'none'; 
         }
-    } catch (error) {
-        return false;
-    }
-    return false;
+        if (field.inputType === 'select') {
+            let select = document.createElement('select');
+
+            
+            if (field.dependentField) {
+                dependentFields.push(field);
+            }
+            field.options.forEach(option => {
+                const optionElement = createElementWithAttributes('option', { textContent: option.label, value:option.value });
+                const option_name = JSON.parse(option.value).property_name;
+                if (value[field.name] == option_name) {
+                    optionElement.selected = true; 
+                }
+                select.appendChild(optionElement);
+            });
+            select.addEventListener('change', (event) => {
+                handleInputChange(row, select, field.name, actions);
+                if (field.dependentField) {
+                    const selectedValue = JSON.parse(event.target.value); 
+                    console.log(selectedValue);
+                    updateDependentField(row, field, selectedValue, actions); 
+                }
+            });
+
+            td.appendChild(select);
+        } else {
+            
+            const input = createElementWithAttributes('input', { type: field.inputType || 'text' });
+            if (Array.isArray(value[field.name])) {
+                input.value = value[field.name].join(';');
+            } else {
+                input.value = value[field.name];
+            }
+            input.addEventListener('input', () => {
+                handleInputChange(row, input, field.name, actions);
+            });
+            td.appendChild(input);
+        }
+
+        row.appendChild(td);
+    });
+
+    
+    const save_button = createButton('', '', ['fa-floppy-disk'], ["formButton"], async function () {
+        const row = this.closest('tr');
+        const object_data = getRowData(row);
+        await actions.edit(object_data);
+        save_button.style.display = 'none';
+    });
+    save_button.style.display = 'none';
+
+    
+    const delete_button = createButton('', '', ['fa-trash'], ["formButton"], async function () {
+        const row = this.closest('tr');
+        const object_data = getRowData(row);
+        await actions.delete(object_data);
+        row.remove();
+    });
+
+    const actionsTd = document.createElement('td');
+    actionsTd.appendChild(save_button);
+    actionsTd.appendChild(delete_button);
+    row.appendChild(actionsTd);
+    tbody.appendChild(row);
+
+    row.addEventListener('input', function () {
+        save_button.style.display = 'inline-block';
+    });
+
+    dependentFields.forEach((field) => {
+        updateDependentField(row, field, value, actions);
+    });
 }
 
 function getRowData(row) {
-    const cells = row.querySelectorAll('td[data-field]');
-    const rowData = JSON.parse(row.dataset.rowData); // Retrieve the original data
-
-    cells.forEach(cell => {
-        const field = cell.dataset.field;
-        rowData[field] = cell.textContent;
+    const data = {};
+    row.querySelectorAll('td[data-name]').forEach(cell => {
+        const select = cell.querySelector('select');
+        const input = cell.querySelector('input');
+        data[cell.dataset.name] = select ? select.value : (input ? input.value : cell.textContent);
     });
-
-    return rowData;
+    return data;
 }
+
+function handleInputChange(row, inputElement, fieldName, actions) {
+    const save_button = row.querySelector('.fa-floppy-disk').parentElement;
+    save_button.style.display = 'inline-block';
+}
+
+function updateDependentField(row, field, value, actions) {
+    console.log(value);
+    const dependentFieldTd = row.querySelector(`td[data-name = "${field.dependentField.name}"]`);
+    console.log(field.dependentField.name)
+    if (!dependentFieldTd) return;
+    
+    const dependentSelect = dependentFieldTd.querySelector('select');
+    if (!dependentSelect) return;
+    console.log(dependentSelect)
+    
+    const dependentOptions = actions.loadDependentOptions(field.name, value.id);
+    if(!dependentOptions) return;
+    console.log(dependentOptions)
+    dependentSelect.innerHTML = ''; 
+    dependentOptions.forEach(option => {
+        const optionElement = createElementWithAttributes('option', { text: option, value: option });
+        if(value.condition == option){
+            optionElement.selected = true; 
+        }
+        dependentSelect.appendChild(optionElement);
+    
+    });
+    
+    
+    
+}
+
 function makePopupDraggable(popup) {
     let isDragging = false;
     let startX, startY, initialX, initialY;

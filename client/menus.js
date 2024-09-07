@@ -1,5 +1,4 @@
 import {createForm, newPopUpMessage, addOptionsToSelect, createButton} from './formUtils.js';
-import {addStyleRule} from './main.js';
 import { addPointModeOn} from './mapTools';
 import { database } from './databaseUtils.js';
 import {projects} from './projects.js';

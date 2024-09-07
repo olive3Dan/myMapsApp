@@ -22,17 +22,18 @@ export const projects = (function(){
         openProject: async () => {
             let projects_data;
             projects_data = await projects.load(current_user);
+            console.log(projects_data)
             let project_select_options = [];
             projects_data.forEach(function(project) {
-                project_select_options.push({value: project, text: project.name});
+                project_select_options.push({value: project.id, text: project.name});
             });
             createForm("open-projects-form-container", "open-project-form", "Open Project", [
                 {type: 'select', options:project_select_options, id: 'select-project', label:"Select Project", placeholder: 'select a project', autocomplete: 'project name' },
                 ],"Open Project", 
                 function(event){
                     event.preventDefault();
-                    const selected_project = JSON.parse(document.getElementById('select-project').value);
-                    projects.open(selected_project.id);
+                    const project_id = document.getElementById('select-project').value;
+                    projects.open(project_id);
                     document.getElementById('open-projects-form-container').remove();
                 }
             );
@@ -84,10 +85,11 @@ export const projects = (function(){
                     menu_items.push(
                         { label: 'Rename Project', iconClasses:['fa-solid','fa-pen-to-square'], onClick: () =>{}},
                         { label: 'Properties', iconClasses:['fa-regular','fa-rectangle-list'], onClick: () => window.eventBus.emit('properties:openPropertiesMenu', {})},
+                        { label: 'Styles', iconClasses:['fa-solid','fa-palette'], onClick: () => window.eventBus.emit('styles:openStylesMenu', {})},
                         { label: 'Delete Project', iconClasses: ['fa-solid', 'fa-trash'], onClick: () => projects.forms.deleteProject(current_project)}
                     );
                 }
-                createContextMenu('projects-context-menu-button', menu_items);
+                createContextMenu(contextMenuButton, menu_items, 'bottom-right');
             }); 
             projectLabelContainer.append(projectLabel, contextMenuButton);
             project_container.append(projectLabelContainer, projectDescription);
@@ -112,7 +114,7 @@ export const projects = (function(){
     return {
         open: async (project_id) => {
             if(current_project) projects.close();
-            setTimeout(()=>10000);
+            
             const project = await database.load("Get Project", `project/${project_id}`);
             current_project = project.id;
             projectLabel.innerHTML = project.name;
