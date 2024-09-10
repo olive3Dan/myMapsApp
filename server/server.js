@@ -513,23 +513,7 @@ app.get("/project_properties/:project_id", async (req, res) => {
   try {
     
     const result = await pool.query(
-        `SELECT DISTINCT
-        properties.id, 
-        properties.name,
-        properties.values, 
-        properties.default_value
-      FROM 
-        projects 
-      INNER JOIN 
-        layers ON projects.id = layers.project_id
-      INNER JOIN 
-        points ON points.layer_id = layers.id 
-      INNER JOIN 
-        points_properties ON points_properties.point_id = points.id 
-      INNER JOIN 
-        properties ON properties.id = points_properties.property_id
-      WHERE 
-        projects.id = $1;`, 
+        `SELECT * FROM properties WHERE project_id = $1;`, 
        [req.params.project_id]
     );
     console.log(result.rows)
@@ -568,16 +552,16 @@ app.get("/properties/:point_id", async (req, res) => {
 });
 app.post("/add_property", async (req, res) => {
   try {
-    const { name, values, default_value } = req.body;
+    const { name, values, default_value, project_id } = req.body;
 
     console.log("Request Body:", req.body);
     values_string = convertArrayToStringFormat(values);
     console.log(values_string)
     const result = await pool.query(
-      `INSERT INTO properties (name, values, default_value)
-       VALUES ($1, $2, $3) 
+      `INSERT INTO properties (name, values, default_value, project_id)
+       VALUES ($1, $2, $3, $4) 
        RETURNING *`,
-      [name, values_string, default_value]
+      [name, values_string, default_value, project_id]
     );
     const newProperty = {
       ...result.rows[0],
@@ -807,7 +791,7 @@ app.delete("/delete_point_property_association/:project_id/:property_id", async 
 app.get("/properties_styles/:project_id", async (req, res) => {
   try {
     const result = await pool.query(`
-    SELECT DISTINCT
+    SELECT
       p.id AS id, 
       s.id AS style_id, 
       p.name AS property_name, 
@@ -824,13 +808,7 @@ app.get("/properties_styles/:project_id", async (req, res) => {
       properties p ON ps.property_id = p.id
     INNER JOIN 
       styles s ON ps.style_id = s.id
-    INNER JOIN 
-      points pt ON pp.point_id = pt.id
-    INNER JOIN 
-      layers l ON pt.layer_id = l.id
-    INNER JOIN 
-      projects pr ON l.project_id = pr.id
-    WHERE pr.id = $1;`, [req.params.project_id]);
+    WHERE p.project_id = $1;`, [req.params.project_id]);
     
     const property_styles = result.rows.map(row => ({
       ...row,
@@ -865,13 +843,7 @@ app.get("/points_styles/:project_id", async (req, res) => {
       INNER JOIN 
         points p
         ON p.id = pp.point_id
-      INNER JOIN 
-        layers l
-        ON l.id = p.layer_id
-      INNER JOIN 
-        projects pr
-        ON pr.id = l.project_id
-      WHERE 
+     WHERE 
         pr.id = $1;`,
       [req.params.project_id]
     );
@@ -886,7 +858,7 @@ app.get("/points_styles/:project_id", async (req, res) => {
 app.post("/add_style", async (req, res) => {
   try {
     const result = await pool.query(
-      "INSERT INTO styles (icon, size, font) VALUES ($1, $2, $3) RETURNING *;",
+      "INSERT INTO styles (icon, size, font) VALUES ($1, $2, $3) RETURNING id, icon, size, font;",
       [req.body.icon, req.body.size, req.body.font]
     );
     res.status(201).json(result.rows[0]);
@@ -898,7 +870,7 @@ app.post("/add_style", async (req, res) => {
 app.post("/add_property_style", async (req, res) => {
   try {
     const result = await pool.query(
-      "INSERT INTO properties_styles (property_id, style_id, value) VALUES ($1, $2, $3) RETURNING *;",
+      "INSERT INTO properties_styles (property_id, style_id, value) VALUES ($1, $2, $3) RETURNING property_id as id, style_id, value;",
       [req.body.property_id, req.body.style_id, req.body.value]
     );
     res.status(201).json(result.rows[0]);
