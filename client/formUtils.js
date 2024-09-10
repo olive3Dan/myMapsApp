@@ -353,8 +353,6 @@ function addRow(tbody, fields, value, actions) {
         }
         if (field.inputType === 'select') {
             let select = document.createElement('select');
-
-            
             if (field.dependentField) {
                 dependentFields.push(field);
             }
@@ -441,18 +439,14 @@ function handleInputChange(row, inputElement, fieldName, actions) {
 }
 
 function updateDependentField(row, field, value, actions) {
-    console.log(value);
+    console.log("updateDependantField: " , value);
     const dependentFieldTd = row.querySelector(`td[data-name = "${field.dependentField.name}"]`);
     console.log(field.dependentField.name)
     if (!dependentFieldTd) return;
-    
     const dependentSelect = dependentFieldTd.querySelector('select');
     if (!dependentSelect) return;
-    console.log(dependentSelect)
-    
     const dependentOptions = actions.loadDependentOptions(field.name, value.id);
     if(!dependentOptions) return;
-    console.log(dependentOptions)
     dependentSelect.innerHTML = ''; 
     dependentOptions.forEach(option => {
         const optionElement = createElementWithAttributes('option', { text: option, value: option });

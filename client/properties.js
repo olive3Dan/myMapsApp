@@ -128,7 +128,8 @@ export const properties = (function(){
             const new_property_data = {
                 name: name,
                 values: values,
-                default_value: default_value
+                default_value: default_value,
+                project_id:current_project
             }
             const property = await database.add("Property", `add_property`, new_property_data);
             await database.add("Point <=> property ", `add_project_property_association/${current_project}`, {property_id: property.id, value:property.default_value});

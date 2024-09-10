@@ -37,7 +37,7 @@ export const styles = (function(){
     const menu = {
        create: async () => {
             const properties_styles = await database.load("Properties Styles", `properties_styles/${current_project}`);
-            console.log("properties_styles", properties_styles);
+            console.log("properties_styles: ", properties_styles);
             const properties = await database.load("project properties",`project_properties/${current_project}`);
             const properties_options = properties.map(property =>{
                 return {label:property.name, value: JSON.stringify(property)}
@@ -68,22 +68,18 @@ export const styles = (function(){
                     if (properties){
                         return await styles.add(properties[0].id,  "", "", "", "");
                     }
-                    
                 },
                 edit: async (data) => {
-                    console.log(data);
-                    styles.edit(data.style_id, data.property_id, data.property_values, data.icon, data.size, data.font);
+                    await styles.edit(data.style_id, data.property_id, data.property_values, data.icon, data.size, data.font);
                 },
                 delete: async (object_data) => {
-                    console.log('Deleting item:', object_data);
+                    await styles.delete(object_data.property_id, object_data.style_id);
                 },
                 loadDependentOptions: (fieldName, property_id) => {
                     let target_property;
-                    
                     if (fieldName == 'property_name') {
                         target_property = properties.find(property => property.id == property_id)
                     }
-                    
                    return target_property.values;
                 }
             };
