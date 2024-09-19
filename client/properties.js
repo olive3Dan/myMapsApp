@@ -62,11 +62,17 @@ export const properties = (function(){
             console.log(project_properties);
             const actions = {
                 add: async () => {
-                   return  await properties.add("", [], "");
+                   return  await properties.add("", "", "");
                 }, 
                 edit:  async (property) => {
-                   
-                   await properties.edit(property.id, property.name, property.values.split(";"), property.default_value);
+                    if (typeof property.values === 'string') {
+                        if (property.values.trim() === "") {
+                            property.values = '';
+                        } else {
+                            property.values = property.values.split(";");
+                        }
+                    }
+                    await properties.edit(property.id, property.name, property.values, property.default_value);
                 }, 
                 delete:  async (property_data) => await properties.delete(property_data.id)
             };
@@ -111,13 +117,14 @@ export const properties = (function(){
             }catch(error){
                 return null
             }
+            console.log(points_properties)
             points_properties.forEach((pp) => {
                 addPropertyToPointOnMap(pp.point_id,{
-                    id: pp.property_id,
-                    name: pp.property_name,
-                    value: pp.property_value,
-                    values: pp.property_values,
-                    default_value: pp.property_default_value
+                    id: pp.id,
+                    name: pp.name,
+                    value: pp.value,
+                    values: pp.values,
+                    default_value: pp.default_value
                 });
             });
             window.eventBus.emit('properties:propertiesLoaded', {})
@@ -146,7 +153,7 @@ export const properties = (function(){
                 default_value: default_value,
             }
             let updated_property = await database.update("Property", `update_property/${updated_property_data.id}`, updated_property_data );
-            console.log("UPDATED PROPERTY FROM DATABASE: ", updated_property)
+            await database.update("Point <=> property ", `update_project_property_association/${current_project}/${updated_property.id}`, {});
             editPropertyFromMap(updated_property);
             window.eventBus.emit('properties:propertyEdited', {});
             return updated_property;

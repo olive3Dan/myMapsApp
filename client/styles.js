@@ -70,10 +70,15 @@ export const styles = (function(){
                     }
                 },
                 edit: async (data) => {
-                    await styles.edit(data.style_id, data.property_id, data.property_values, data.icon, data.size, data.font);
+                    console.log("DATA: ", data)
+                    let property = JSON.parse(data.property_name);
+                    await styles.edit(data.style_id, property.id, data.property_values, data.icon, data.size, data.font);
                 },
                 delete: async (object_data) => {
-                    await styles.delete(object_data.property_id, object_data.style_id);
+                    
+                    let property = JSON.parse(object_data.property_name);
+                    console.log("DELETE OBJECT DATA: ", property.id, object_data.style_id)
+                    await styles.delete(property.id, object_data.style_id);
                 },
                 loadDependentOptions: (fieldName, property_id) => {
                     let target_property;
@@ -138,7 +143,7 @@ export const styles = (function(){
                 console.log('UPDATED STYLE:', updated_style);
                 updated_property_style = await database.update('style', `update_properties_styles/${property_id}/${style_id}`, {value:value});
                 console.log('UPDATED PROPERTY_STYLE:', updated_property_style);
-                //window.eventBus.emit('styles:editStyle', data);
+                window.eventBus.emit('styles:editStyle', updated_property_style);
             } catch (error) {
                 console.error('Error editing style:', error);
             }
@@ -146,9 +151,9 @@ export const styles = (function(){
         },
         delete: async (property_id, style_id) => {
            try {
-                await database.delete('style', `delete_style/${style_id}`, {});
-                await database.delete('style', `delete_property_style/${property_id}/${style_id}`, {});
-                console.log('DELETED STYLE:', style_id);
+                console.log('DELETED STYLE:', property_id, style_id );    
+                await database.delete('style', `delete_style/`,  style_id );
+                await database.delete('style', `delete_property_style/${property_id}/${style_id}`,"");
                 window.eventBus.emit('styles:deleteStyle', data);
             } catch (error) {
                 console.error('Error deleting style:', error);

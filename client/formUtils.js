@@ -15,7 +15,6 @@ export function createPropertyTable(custom_properties) {
         const valueCell = document.createElement('td');
         nameCell.textContent = custom_property.name;
         valueCell.textContent = custom_property.value;
-       
         row.append(nameCell, valueCell);
         propertyTable.appendChild(row);
     });
@@ -297,7 +296,6 @@ function getRowData(row) {
 }*/
 export function createDataTablePopup(title, headers, visible_fields, values, actions) {
     const popup = createElementWithAttributes('div', { class: ["popupForm"] });
-
     // HEAD
     const header = createElementWithAttributes('h2', { textContent: title });
     popup.appendChild(header);
@@ -372,7 +370,6 @@ function addRow(tbody, fields, value, actions) {
                     updateDependentField(row, field, selectedValue, actions); 
                 }
             });
-
             td.appendChild(select);
         } else {
             
@@ -413,11 +410,9 @@ function addRow(tbody, fields, value, actions) {
     actionsTd.appendChild(delete_button);
     row.appendChild(actionsTd);
     tbody.appendChild(row);
-
     row.addEventListener('input', function () {
         save_button.style.display = 'inline-block';
     });
-
     dependentFields.forEach((field) => {
         updateDependentField(row, field, value, actions);
     });
@@ -442,11 +437,9 @@ function updateDependentField(row, field, value, actions) {
     console.log("updateDependantField: " , value);
     const dependentFieldTd = row.querySelector(`td[data-name = "${field.dependentField.name}"]`);
     console.log(field.dependentField.name)
-    if (!dependentFieldTd) return;
     const dependentSelect = dependentFieldTd.querySelector('select');
-    if (!dependentSelect) return;
     const dependentOptions = actions.loadDependentOptions(field.name, value.id);
-    if(!dependentOptions) return;
+    console.log("dependentOptions", dependentOptions);
     dependentSelect.innerHTML = ''; 
     dependentOptions.forEach(option => {
         const optionElement = createElementWithAttributes('option', { text: option, value: option });

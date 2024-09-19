@@ -3,11 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/x-icon" href="https://openlayers.org/favicon.ico" />
-    <!--estilos para os botões de editar e eliminar camadas-->
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="https://cdn.jsdelivr.net/npm/ol@7.4.0/dist/ol.js"></script>
-    
+    <link rel="stylesheet" href="style.css">
     <title>Projeto Engenharia Informática</title>
   </head>
   <body>
@@ -17,18 +17,6 @@
     <!--PROJECTS-->
       <div id="project-container" class = "project-menu-container">
       </div>
-      
-     
-      
-      <!--BASE MAP
-      <div id="basemapSelectorContainer">
-          <h3>Base Map Selector</h3>
-          <select id="baseMapDropDown">
-              <option value="map1">Map 1</option>
-              <option value="map2">Map 2</option>
-              
-          </select>
-      </div>-->
       
       <!--PROPERTIES-->
       <div id = "properties_menu"></div>
@@ -40,6 +28,15 @@
     <!--POINTS MENU-->
     
     <div id="map"></div>
-    <script type="module" src="./temp.js"></script>
+    
+    <div class="map-selector">
+      <button class="map-selector-button">
+          <i class="fa-solid fa-layer-group"></i> Mapa Base
+      </button>
+      <div class="map-options">
+          <!-- Opções de mapas base serão inseridas aqui dinamicamente -->
+      </div>
+  </div>
+    <script type="module" src="./main.js"></script>
   </body>
 </html>

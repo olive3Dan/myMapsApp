@@ -30,28 +30,35 @@ export const features = (function(){
     function stringToCoordinates(coordinateString) {
         const coordinatesArray = coordinateString.split(',').map(parseFloat);
         return coordinatesArray;
-      }
-    function generatePointInputFieldsData(point, property_names){
+    }
+    function generatePointInputFieldsData(point, property_names) {
         let properties = point.getProperties();
         let input_fields = [];
+        
         Object.keys(properties).forEach(property_name => {
-            const target_property = property_names.find((name) => name == property_name);
-            if(target_property){
-                input_fields.push({
-                    type: 'text',
+            const target_property = property_names.find(name => name === property_name);
+            if (target_property) {
+                let field = {
                     id: target_property + "InputField",
                     placeholder: target_property,
                     autocomplete: 'off',
-                    label:target_property,
-                    value: properties[target_property]
-                });
+                    label: target_property
+                };
+                if (target_property === 'foto') {
+                    field.type = 'file';
+                    field.accept = 'image/*'; // Garante que só imagens são aceitas
+                } else {
+                    field.type = 'text';
+                    field.value = properties[target_property]; 
+                }
+                
+                input_fields.push(field);
             }
-            
-        })
+        });
+    
         return input_fields;
     }
     function generatePropertiesInputFieldsData(properties) {
-        console.log("EDIT FEATURE::", properties);
         const inputFields = [];
         properties.forEach(property => {
             const inputField = {
@@ -62,7 +69,6 @@ export const features = (function(){
                 label: property.name,
                 value: property.value
             };
-            
             if (Array.isArray(property.values) && property.values.length > 0) {
                 inputField.type = 'select';
                 inputField.options = property.values.map(value => ({
@@ -124,7 +130,6 @@ export const features = (function(){
         edit: (feature) => {
             
             const input_fields_data = generateInputFields(feature);
-            
             createForm('editPointFormContainer', 'editPointForm', 'Edit Point', input_fields_data, 'OK', async function (event){
                 event.preventDefault(); 
                 let updated_point_data = getPointFormValues(feature, ["name", "foto", 'coordinates'] );
@@ -217,6 +222,9 @@ export const features = (function(){
             window.eventBus.emit('features:addFeature',{feature_id: point_data.id});
         },
         edit: async (updated_point_data, updated_custom_properties) => {
+            console.log("FEATURES EDIT : ")
+            console.log("UPDATED CUSTOM PROPERTIES: ");
+            console.log(updated_custom_properties)
             await database.update("point", `update_point/${updated_point_data.id}`, updated_point_data);
             editPointFromMap(updated_point_data);
             updated_custom_properties.forEach(async (new_custom_property) => {
@@ -225,7 +233,7 @@ export const features = (function(){
                     `update_point_property_association/${updated_point_data.id}/${new_custom_property.id}`,
                     {value: new_custom_property.value}
                 );
-                editPropertyFromPointOnMap(updated_point_data.id, updated_property);
+                editPropertyFromPointOnMap(updated_point_data.id, new_custom_property);
             });
             features.menu.edit(updated_point_data);
             window.eventBus.emit('features:featureEdited',{feature_id: updated_point_data.id});

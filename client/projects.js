@@ -114,14 +114,12 @@ export const projects = (function(){
     return {
         open: async (project_id) => {
             if(current_project) projects.close();
-            
             const project = await database.load("Get Project", `project/${project_id}`);
             current_project = project.id;
             projectLabel.innerHTML = project.name;
             projectDescription.innerHTML = "descrição sumaria do projeto...";
             console.log("OPEN PROJECT ID " + project_id);
             window.eventBus.emit("projects:openProject", {project_id: project_id});
-            
         },
         load: async (user_id) => {
             try{

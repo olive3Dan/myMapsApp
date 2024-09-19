@@ -4,7 +4,8 @@ import 'ol/ol.css';
 import Map from 'ol/Map';
 import View from 'ol/View';
 import {Group as LayerGroup, Tile as TileLayer} from 'ol/layer';
-import OSM from 'ol/source/OSM';
+//import OSM from 'ol/source/OSM';
+import { OSM, XYZ } from 'ol/source';
 import Point from 'ol/geom/Point';
 import Feature from 'ol/Feature';
 import {Icon, Style, Text, Fill, Stroke} from 'ol/style';
@@ -52,11 +53,7 @@ window.eventBus.on('layers:loadLayer', (event) => addLayerToMap(event.layer_id))
 window.eventBus.on('features:unselectAll', () => unselectAll());
 window.eventBus.on('features:selectFeature', (event) => selectPointOnMap(event.feature_id));
 
-//PROPERTIES
-window.eventBus.on('properties:addProperty', (event) => {
-    
-});
-//STYLES
+
 document.addEventListener('keydown', function(event) {
     if (event.key === 'Delete') {
         selected_features.forEach( feature_id => { 
@@ -65,78 +62,132 @@ document.addEventListener('keydown', function(event) {
         unselectAll();
     }    
 });
-
-//MAPS
-const base_maps = new LayerGroup({
-    layers: [
-      new TileLayer({
-        source: new OSM(),
-        title: 'Open Street Maps'
-      }),
-      // Otras capas aquí utilizar um base layer switcher
-
-    ],
-    title: 'Base Maps'
+let base_maps = new LayerGroup({
+    layers: [],
+    title: 'Mapas Base'
   });
-export function changeMapCursor(cursor){
-    map.getTargetElement().style.cursor = cursor;
-} 
-export function newMap(){
+  
+  export function newMap() {
     map = new Map({
-        target: 'map',
-        layers: [base_maps],
-        view: new View({
-            center: fromLonLat([-8.61099, 41.14961]), // Coordenadas de Portugal
-            zoom: 8
-        })
+      target: 'map',
+      layers: [base_maps],
+      view: new View({
+        center: fromLonLat([-8.61099, 41.14961]), // Coordenadas de Portugal
+        zoom: 8
+      })
     });
+    
     map.addOverlay(popupOverlay);
-    map.on('click', async function(event){
-        if (adding_point_mode) {
-            window.eventBus.emit('map:click', {coordinates:event.coordinate});
-            addPointModeOff();
-            return;  
-        }
-        let hovered_feature = getHoveredFeature(event);
-        if (!hovered_feature) {
-            unselectAll();
-            popupOverlay.setElement(null);
-            return;   
-        }
-        if (!isCtrlPressed(event.originalEvent)) {
-            unselectAll();
-            showPointProperties(hovered_feature.get('id'));
-        }else{
-            popupOverlay.setElement(null);
-        }
-        selectPointOnMap(hovered_feature.get('id'));
-        window.eventBus.emit('features:selectFeature', {feature_id:hovered_feature.get('id')})
+    
+      addBaseMap({
+        title: 'Satélite',
+        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        iconClass: 'fa-solid fa-earth-americas',
+        visible:true,
+      });
+      
+      addBaseMap({
+        title: 'Relevo',
+        url: 'https://{a-c}.tile.opentopomap.org/{z}/{x}/{y}.png',
+        iconClass:'fa-solid fa-mountain',
+        visible:true,
+      });
+      addBaseMap({
+        title: 'Open Street Maps',
+        url: 'https://{a-c}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        iconClass: 'fa-solid fa-road', 
+        visible: true,
+      });
+    map.on('click', async function(event) {
+      if (adding_point_mode) {
+        window.eventBus.emit('map:click', { coordinates: event.coordinate });
+        addPointModeOff();
+        return;
+      }
+  
+      let hovered_feature = getHoveredFeature(event);
+      if (!hovered_feature) {
+        unselectAll();
+        popupOverlay.setElement(null);
+        return;
+      }
+  
+      if (!isCtrlPressed(event.originalEvent)) {
+        unselectAll();
+        showPointProperties(hovered_feature.get('id'));
+      } else {
+        popupOverlay.setElement(null);
+      }
+  
+      selectPointOnMap(hovered_feature.get('id'));
+      window.eventBus.emit('features:selectFeature', { feature_id: hovered_feature.get('id') });
     });
+  
     map.on('pointermove', function (event) {
-        if(adding_point_mode) return;
-        let hovered_feature = getHoveredFeature(event);
-        if(hovered_feature){
-            changeMapCursor("pointer");
-        }else{
-            changeMapCursor("");
-        }
-    });      
-}
-export function addBaseMap(title, base_map){
-    const newTileLayer = new TileLayer({
-        source: base_map,
-        title: title
+      if (adding_point_mode) return;
+      let hovered_feature = getHoveredFeature(event);
+      if (hovered_feature) {
+        changeMapCursor("pointer");
+      } else {
+        changeMapCursor("");
+      }
     });
-    base_maps.getLayers().push(newTileLayer);
-}
-export function deleteBaseMap(title){
-    const layersInsideGroup = base_maps.getLayers().getArray();
-    const layerToRemove = layersInsideGroup.find(layer => layer.get('title') === title);
-    if (layerToRemove) {
-        base_maps.getLayers().remove(layerToRemove);
-    } 
-}
+  }
+  
+  export function switchBaseMap(mapType) {
+    base_maps.getLayers().forEach(function(layer) {
+      layer.setVisible(layer.get('title') === mapType);
+    });
+  }
+  
+ 
+  export function addBaseMap(mapConfig) {
+    const { title, url, iconClass, type = 'base', visible = false } = mapConfig;
+    
+    const newLayer = new TileLayer({
+      source: new XYZ({ url: url }),
+      title: title,
+      type: type,
+      visible: visible
+    });
+  
+    base_maps.getLayers().push(newLayer);
+    
+    addBaseMapToUI(title, iconClass);
+  }
+  
+  
+  export function changeMapCursor(cursor) {
+    map.getTargetElement().style.cursor = cursor;
+  }
 
+  //BASE MAPS
+  function toggleMapOptions() {
+    const optionsMenu = document.querySelector('.map-options');
+    optionsMenu.style.display = optionsMenu.style.display === 'block' ? 'none' : 'block';
+}
+  
+function addBaseMapToUI(title, iconClass) {
+    const optionsMenu = document.querySelector('.map-options');
+
+    const option = document.createElement('div');
+    option.className = 'map-option';
+    option.onclick = () => switchBaseMap(title);
+
+    const icon = document.createElement('i'); // Ícone Font Awesome
+    icon.className = iconClass; // Usa a classe do ícone passado como argumento
+
+    const label = document.createElement('span');
+    label.innerText = title;
+
+    option.appendChild(icon);
+    option.appendChild(label);
+
+    optionsMenu.appendChild(option);
+}
+document.querySelector('.map-selector-button').addEventListener('click', toggleMapOptions);
+  
+  
 //LAYERS
 export function addLayerToMap(layer_id) {
     const newVectorLayer = new VectorLayer({
@@ -294,7 +345,7 @@ export function showPointProperties(point_id) {
     if (!point) throw new Error("Ponto invalido");
     const popupElement = createElementWithAttributes('div', {class:'feature-popup'});
     const pointNameHeader = createElementWithAttributes('h2', {textContent: point.get('name')});
-    const imgElement = createElementWithAttributes('img', {src:point.get('foto'), width:200, height:100});
+    const imgElement = createElementWithAttributes('img', {src:point.get('foto'), });
     const propertyTable = createPropertyTable(point.getProperties().custom_properties);
     const coordinatesFooter = createElementWithAttributes('div', {class: 'footer', innerHTML:`<i class="fa-solid fa-location-pin"></i>   ${stringifyCoordinates(point.get('coordinates'))}`});
     const editButton = createButton('Edit', 'edit-button', ['fa-edit'], ["formButton"], () => window.eventBus.emit('features:editFeature', {feature:point}));
@@ -318,8 +369,7 @@ export function showPointProperties(point_id) {
 
 }
 export function addPropertyToPointOnMap(point_id, point_property) {
-    console.log("ADD PROPERTY: "+point_property.id+" TO POINT: "+point_id)
-    console.log(point_property);
+    console.log("ADD PROPERTY: " + point_property.id + " TO POINT: " + point_id);
     const point = getPointFromMap(point_id);
     point.get('custom_properties').push(point_property);
     if (isSelected(point_id)){
@@ -337,18 +387,22 @@ export function deletePropertyFromPointOnMap(point_id, property_id) {
 }
 export function editPropertyFromPointOnMap(point_id, new_property_data) {
     console.log("EDIT PROPERTY: " +new_property_data.id+ " FROM POINT: " + point_id);
-    console.log(new_property_data);
+    console.log("NEW PROPERTY DATA")
+    console.log(new_property_data)
     const point = getPointFromMap(point_id);
     const custom_properties = point.getProperties().custom_properties;
     const updatedProperties = custom_properties.map(prop => {
-        if (prop.id === new_property_data.id) {
-            if(!prop.value || !new_property_data.values.includes(prop.value)){
+        if (prop.id == new_property_data.id) {
+            prop.name = new_property_data.name;
+            prop.values = new_property_data.values;
+            prop.default_value = new_property_data.default_value;
+            if(!prop.value || !prop.values.includes(prop.value)){
                 prop.value = new_property_data.default_value;
             }
-            return new_property_data;
         }
         return prop;
     });
+    console.log(updatedProperties);
     point.set('custom_properties', updatedProperties);
     if (isSelected(point_id)) {
         showPointProperties(point_id);
@@ -385,7 +439,7 @@ function newPointStyle(style_data) {
         text: new Text({
             font: style_data.font,
             offsetX: 0, 
-            offsetY: (-40 * style_data.size),  
+            offsetY: (-50 * style_data.size),  
             fill: new Fill({
                 color: '#000',
             }),

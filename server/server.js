@@ -1,10 +1,4 @@
-//1. AUTENTICAR OS UTILIZADORES PELO EMAIL
-//2. sql iNJECTION PREVENTION
-//3. REVIEW ERROR HANDLING with express-validator
-//4. Consider using HTTPS to protect the token during transmission.
-//5. Error Handling improvments
-//6. É NECESSÁRIO VERIFICAR SE O UTILIZADOR JÁ EXISTE NA BASE DE DADOS!!!
-//7. testar os parametros que entram nas funçções
+
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
@@ -13,8 +7,6 @@ const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
 require('dotenv').config();
 const app = express();
-
-
 
 let retryCount = 0;
 app.use(bodyParser.json());
@@ -53,7 +45,31 @@ const authenticateToken = (req, res, next) => {
     next(); 
   });
 };
-
+function connectToDatabase() {
+  pool.connect((err, client, done) => {
+    if (err) {
+      if (retryCount < MAX_RETRIES) {
+        console.error('Error connecting to the database:', err.stack);
+        console.log(`Retrying in ${RETRY_INTERVAL / 1000} seconds...`);
+        retryCount++;
+        setTimeout(connectToDatabase, RETRY_INTERVAL);
+      } else {
+        console.error('Max retries reached. Unable to connect to the database.');
+        process.exit(1); // Exit the server if the maximum number of retries is reached
+      }
+    } else {
+      console.log('Connected to the database :)');
+      done();
+    }
+  });
+}
+const hashPassword = async (password) => {
+  const saltRounds = 10;
+  return await bcript.hash(password, saltRounds);
+};
+const comparePasswords = async (plainPassword, hashedPassword) => {
+  return await bcript.compare(plainPassword, hashedPassword);
+};
 //GROUPS
 app.get("/groups", async (req, res) => {
   try {
@@ -552,22 +568,19 @@ app.get("/properties/:point_id", async (req, res) => {
 });
 app.post("/add_property", async (req, res) => {
   try {
-    const { name, values, default_value, project_id } = req.body;
-
-    console.log("Request Body:", req.body);
-    values_string = convertArrayToStringFormat(values);
+    
+    values_string = convertArrayToStringFormat(req.body.values);
     console.log(values_string)
     const result = await pool.query(
       `INSERT INTO properties (name, values, default_value, project_id)
        VALUES ($1, $2, $3, $4) 
        RETURNING *`,
-      [name, values_string, default_value, project_id]
+      [req.body.name, values_string, req.body.default_value, req.body.project_id]
     );
     const newProperty = {
       ...result.rows[0],
       values: JSON.parse(result.rows[0].values)
     };
-
     console.log("ADDED PROPERTY: ", newProperty);
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -577,9 +590,10 @@ app.post("/add_property", async (req, res) => {
 });
 app.put("/update_property/:id", async (req, res) => {
   try {
+    console.log("PROPERTY UPDATE: ");
     const { id, name, values, default_value } = req.body;
-    console.log("Request Body:", req.body);
     const values_string = convertArrayToStringFormat(values);
+    console.log(values)
     console.log(values_string)
     const result = await pool.query(
       "UPDATE properties SET name = $1, values = $2, default_value = $3 WHERE id = $4 RETURNING *",
@@ -588,7 +602,7 @@ app.put("/update_property/:id", async (req, res) => {
     const updatedProperty = result.rows[0];
     
     updatedProperty.values = JSON.parse(updatedProperty.values)
-    console.log("PROPERTY UPDATE: ");
+    
     console.log(updatedProperty);
     
     res.status(200).json(updatedProperty);
@@ -624,11 +638,11 @@ app.get("/points_properties_associations/:project_id", async (req, res) => {
     const result = await pool.query(`
       SELECT 
         points.id as point_id,
-        properties.id as property_id, 
-        properties.name as property_name, 
-        properties.values as property_values, 
-        properties.default_value as property_default_value, 
-        points_properties.value as property_value 
+        properties.id, 
+        properties.name,
+        properties.values,
+        properties.default_value,
+        points_properties.value
       FROM 
         projects 
       INNER JOIN 
@@ -647,7 +661,7 @@ app.get("/points_properties_associations/:project_id", async (req, res) => {
     console.log(result.rows);
     const properties = result.rows.map(row => ({
       ...row,
-      property_values: JSON.parse(row.property_values)
+      values: JSON.parse(row.values)
     }));
     console.log(properties)
     res.status(200).json(properties);
@@ -738,23 +752,49 @@ app.put("/update_point_property_association/:point_id/:property_id", async (req,
 });
 app.post("/add_project_property_association/:project_id", async (req, res) => {
   try {
-    const result = await pool.query(
+      const result = await pool.query(
       `INSERT INTO points_properties (point_id, property_id, value)
-       SELECT points.id, $1, $3
-       FROM points 
-       INNER JOIN layers ON points.layer_id = layers.id
-       INNER JOIN projects ON layers.project_id = projects.id
-       WHERE projects.id = $2 
-       RETURNING *;`,
+        SELECT points.id, $1, $3
+        FROM points
+        INNER JOIN layers
+        ON layers.id = points.layer_id
+        INNER JOIN projects
+        ON projects.id = layers.project_id
+        WHERE projects.id = $2 
+        RETURNING *;`,
       [req.body.property_id, 
        req.params.project_id,
-       JSON.stringify(req.body.value)]
+       req.body.value]
     );
     console.log(result.rows);
     res.status(201).json(result.rows);
   }catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal server error post property" });
+  }
+});
+app.put("/update_project_property_association/:project_id/:property_id", async (req, res) => {
+  try {
+    console.log("--POINT_PROPERTY UPDATE: --");
+    const result = await pool.query(
+      `UPDATE points_properties
+      SET value = properties.default_value
+      FROM properties, points
+      WHERE points_properties.property_id = properties.id
+      AND points_properties.point_id = points.id
+      AND properties.project_id = $1
+      AND points_properties.property_id = $2
+      AND (points_properties.value = '' 
+      OR points_properties.value = '""' 
+      OR points_properties.value IS NULL)
+      RETURNING *;`,
+      [req.params.project_id, req.params.property_id ]
+    );
+    console.log(result.rows[0]);
+    res.status(200).json({message:"query successfull"});
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal server error in property put" });
   }
 });
 app.delete("/delete_point_property_association/:project_id/:property_id", async (req, res) => {
@@ -791,7 +831,7 @@ app.delete("/delete_point_property_association/:project_id/:property_id", async 
 app.get("/properties_styles/:project_id", async (req, res) => {
   try {
     const result = await pool.query(`
-    SELECT
+    SELECT DISTINCT
       p.id AS id, 
       s.id AS style_id, 
       p.name AS property_name, 
@@ -825,26 +865,28 @@ app.get("/points_styles/:project_id", async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT 
-        pp.point_id, 
-        pp.property_id, 
-        pp.value,
-        ps.style_id,
-        s.icon,
-        s.size,
-        s.font
-      FROM 
-        points_properties pp
+        points_properties.point_id, 
+        points_properties.property_id, 
+        points_properties.value,
+        properties_styles.style_id,
+        styles.icon,
+        styles.size,
+        styles.font
+      FROM properties
+	  INNER JOIN 
+        points_properties
+		ON properties.id = points_properties.property_id
       INNER JOIN 
-        properties_styles ps
-        ON ps.property_id = pp.property_id AND pp.value = ps.value
+        properties_styles
+        ON properties_styles.property_id = points_properties.property_id AND points_properties.value = properties_styles.value
       INNER JOIN 
-        styles s
-        ON s.id = ps.style_id
+        styles
+        ON styles.id = properties_styles.style_id
       INNER JOIN 
-        points p
-        ON p.id = pp.point_id
+        points
+        ON points.id = points_properties.point_id
      WHERE 
-        pr.id = $1;`,
+        properties.project_id = $1;`,
       [req.params.project_id]
     );
     console.log("POINT STYLES: ");
@@ -904,10 +946,10 @@ app.put("/update_properties_styles/:property_id/:style_id", async (req, res) => 
   try {
     const result = await pool.query(
       `UPDATE properties_styles
-      SET value = $1
-      WHERE style_id = $2 AND property_id = $3
+      SET property_id = $1,  value = $2
+      WHERE style_id = $3
       RETURNING *;`,
-      [req.body.value, req.params.style_id, req.params.property_id]
+      [ req.params.property_id, req.body.value, req.params.style_id, ]
     );
     if (result.rows.length === 0) {
       res.status(404).json({ error: 'Property-style not found' });
@@ -923,9 +965,8 @@ app.put("/update_properties_styles/:property_id/:style_id", async (req, res) => 
 });
 app.delete("/delete_style/:style_id", async (req, res) => {
   try {
-    const result = await pool.query("DELETE FROM styles WHERE id = $1;", [
-      req.params.style_id
-    ]);
+    console.log("DELETE STYLE: ", req.params.style_id);
+    const result = await pool.query("DELETE FROM styles WHERE id = $1;", [req.params.style_id]);
     if (result.rowCount === 0) {
       res.status(404).json({ error: "Style not found" });
     } else {
@@ -952,29 +993,5 @@ app.delete("/delete_property_style/:property_id/:style_id", async (req, res) => 
   }
 });
 
-function connectToDatabase() {
-  pool.connect((err, client, done) => {
-    if (err) {
-      if (retryCount < MAX_RETRIES) {
-        console.error('Error connecting to the database:', err.stack);
-        console.log(`Retrying in ${RETRY_INTERVAL / 1000} seconds...`);
-        retryCount++;
-        setTimeout(connectToDatabase, RETRY_INTERVAL);
-      } else {
-        console.error('Max retries reached. Unable to connect to the database.');
-        process.exit(1); // Exit the server if the maximum number of retries is reached
-      }
-    } else {
-      console.log('Connected to the database :)');
-      done();
-    }
-  });
-}
-const hashPassword = async (password) => {
-  const saltRounds = 10;
-  return await bcript.hash(password, saltRounds);
-};
-const comparePasswords = async (plainPassword, hashedPassword) => {
-  return await bcript.compare(plainPassword, hashedPassword);
-};
+
 

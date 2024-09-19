@@ -4,7 +4,7 @@ import {database} from './databaseUtils.js';
 export const users = (function(){
     const usersMenuContainer = document.getElementById('usersMenuContainer');
     const editUserButton = createButton('Edit User', 'editUserButton', ['fa-user-edit'] ,["formButton"],() => {   
-        /*editar utilizador */  
+       
     });
     const deleteUserButton = createButton('Delete Account', 'deleteUserButton', ['fa-trash-alt'],["formButton"], () => {    
         createForm('delete-user-form-container', 'deleteUserForm', 'Delete Account?', [], 'Yes, Delete', 
@@ -95,7 +95,7 @@ export const users = (function(){
             localStorage.setItem('user', user_token);
             window.eventBus.emit('users:loginUser', {user_id: users.getCurrent()}); 
             document.getElementById('currentUserDisplay').innerText = name;
-            usersMenuContainer.append(editUserButton, deleteUserButton, signoutButton);
+            usersMenuContainer.append(deleteUserButton, signoutButton);
             return users.getCurrent(); 
         },
         add: async (name, password) => {

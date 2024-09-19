@@ -1,7 +1,4 @@
-//MELHORIAS NA FUNÇÃO load aquando de 404 not found throw an error
 export const database = (function(){
-    //event listeners
-    
     //private variables and functions
     const server_url = "http://localhost:3000/";
     //public interface  
