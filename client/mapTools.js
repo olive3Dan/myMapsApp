@@ -302,16 +302,22 @@ export function editPointFromMap(new_point_data){
     Object.keys(properties).forEach((property) => {
         let target_property_value = findPropertyInObject(new_point_data, property);
         if (target_property_value) {
+            
             point.set(property, target_property_value );
         }
     });
     point.set('geometry', new Point(new_point_data.coordinates));
     setPointLabel(point, new_point_data.name);
-    console.log("edit POINT :" + new_point_data.id + " fROM MAP");
+    
+    /*
+    
     const popupElement = popupOverlay.getElement();
     if (popupElement) {
         showPointProperties(new_point_data.id);
-    }   
+    }   */
+        if (isSelected(point.id)) {
+            showPointProperties(point.id);
+        }
 
 }
 function unselectAll(){
@@ -343,10 +349,12 @@ export function showPointProperties(point_id) {
     popupOverlay.setElement(null);
     const point = getPointFromMap(point_id);
     if (!point) throw new Error("Ponto invalido");
+    const custom_properties = point.getProperties().custom_properties;
+    
     const popupElement = createElementWithAttributes('div', {class:'feature-popup'});
     const pointNameHeader = createElementWithAttributes('h2', {textContent: point.get('name')});
     const imgElement = createElementWithAttributes('img', {src:point.get('foto'), });
-    const propertyTable = createPropertyTable(point.getProperties().custom_properties);
+    const propertyTable = createPropertyTable(custom_properties);
     const coordinatesFooter = createElementWithAttributes('div', {class: 'footer', innerHTML:`<i class="fa-solid fa-location-pin"></i>   ${stringifyCoordinates(point.get('coordinates'))}`});
     const editButton = createButton('Edit', 'edit-button', ['fa-edit'], ["formButton"], () => window.eventBus.emit('features:editFeature', {feature:point}));
     const delete_button = createButton('Delete', 'delete-button', ['fa-trash'], ["formButton"], () => {
@@ -372,57 +380,89 @@ export function addPropertyToPointOnMap(point_id, point_property) {
     console.log("ADD PROPERTY: " + point_property.id + " TO POINT: " + point_id);
     const point = getPointFromMap(point_id);
     point.get('custom_properties').push(point_property);
-    if (isSelected(point_id)){
-        showPointProperties(point_id);
-    }
 }
 export function deletePropertyFromPointOnMap(point_id, property_id) {
-    let point = getPointFromMap(point_id);
-    let custom_properties = point.getProperties().custom_properties;
-    point.set('custom_properties', custom_properties.filter(property => property.id != property_id));
-    if (isSelected(point_id)){
-        showPointProperties(point_id);
-    }
-    console.log("DELETE PROPERTY: " +property_id+ " FROM POINT: " + point_id);
-}
-export function editPropertyFromPointOnMap(point_id, new_property_data) {
-    console.log("EDIT PROPERTY: " +new_property_data.id+ " FROM POINT: " + point_id);
-    console.log("NEW PROPERTY DATA")
-    console.log(new_property_data)
+    console.log(`DELETE PROPERTY ${property_id} FROM POINT ${point_id} ON MAP`)
     const point = getPointFromMap(point_id);
-    const custom_properties = point.getProperties().custom_properties;
-    const updatedProperties = custom_properties.map(prop => {
-        if (prop.id == new_property_data.id) {
-            prop.name = new_property_data.name;
-            prop.values = new_property_data.values;
-            prop.default_value = new_property_data.default_value;
-            if(!prop.value || !prop.values.includes(prop.value)){
-                prop.value = new_property_data.default_value;
-            }
-        }
-        return prop;
-    });
-    console.log(updatedProperties);
-    point.set('custom_properties', updatedProperties);
+    if (!point) {
+        console.error(`Ponto com ID ${point_id} não encontrado.`);
+        return;
+    }
+
+   const custom_properties = point.get('custom_properties') || [];
+    
+    //console.log("CUSTOM PROPERTIES: ", custom_properties)
+
+    const updated_properties = custom_properties.filter(property => property.id != property_id);
+
+    //console.log("UPDATED PROPERTIES: ", updated_properties)
+    
+    point.set('custom_properties', updated_properties);
+
+    
     if (isSelected(point_id)) {
         showPointProperties(point_id);
     }
 }
-function removePropertyFromPoint(point, property_id) {
-    
+export function editPropertyFromPointOnMap(point_id, new_property_data) {
+    console.log("EDIT PROPERTY: " + new_property_data.id + " FROM POINT: " + point_id);
+
+    const point = getPointFromMap(point_id);
+    if (!point) {
+        console.error(`Ponto com ID ${point_id} não encontrado.`);
+        return;
+    }
+
+    const custom_properties = point.get('custom_properties');
+    if (!custom_properties) {
+        console.error(`Nada de propriedades em ${point_id}`);
+        return;
+    }
+    const propertyToEdit = custom_properties.find(prop => prop.id == new_property_data.id);
+    console.log("PropertyToEdit: ", propertyToEdit);
+
+    if (propertyToEdit) {
+        
+        propertyToEdit.name = new_property_data.name;
+        propertyToEdit.values = new_property_data.values;
+        propertyToEdit.default_value = new_property_data.default_value;
+
+        
+        if (!propertyToEdit.value) {
+            propertyToEdit.value = new_property_data.default_value;
+        }
+
+        console.log("PROPRIEDADE ATUALIZADA: ", propertyToEdit);
+
+        
+        const updated_properties = custom_properties.map(prop => 
+            prop.id == new_property_data.id ? propertyToEdit : prop
+        );
+
+        
+        point.set('custom_properties', updated_properties);
+    } else {
+        console.warn(`Propriedade com ID ${new_property_data.id} não encontrada no ponto com ID ${point_id}.`);
+        return;
+    }
+    if (isSelected(point_id)) {
+        showPointProperties(point_id);
+    }
 }
+
 export function addPropertyToMap(new_property){
     forEachFeature(point => {
         addPropertyToPointOnMap(point.get('id'), new_property);
     });    
 }
-export function editPropertyFromMap(property_data) {
-    console.log("EDIT PROPERTY: " + property_data.id + " FROM MAP")
+export function editPropertyFromMap(property) {
+    console.log("EDIT PROPERTY: " + property.id + " FROM MAP")
     forEachFeature(point => {
-        editPropertyFromPointOnMap(point.get('id'), property_data);
+        editPropertyFromPointOnMap(point.get('id'), property);
     });
 }
 export function deletePropertyFromMap(property_id) {
+    console.log("DELETE PROPERTY FROM MAP: ", property_id)
     forEachFeature(point => {
         deletePropertyFromPointOnMap(point.get('id'), property_id);
     });
@@ -483,9 +523,6 @@ export function editStyleOnMap(point_id, style){
     console.log("RULE: " + style.style_id + "POINT: " + point_id);
    
 }
-
-
-
 
 function getIconDimensions(iconPath) {
     return new Promise((resolve, reject) => {

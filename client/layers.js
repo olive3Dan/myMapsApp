@@ -9,14 +9,13 @@ export const layers = (function(){
     let current_layer = null;
     window.eventBus.on('projects:openProject', async (event) => {
         current_project = event.project_id;
-        layers.menu.create();
+        
         const layers_data = await layers.load(event.project_id);
-        if(!layers_data) return;
-        layers.select(layers_data[0].id);
+        
+        
     });
-    window.eventBus.on('projects:closeProject', (event) => {
-        layers.unload();
-        layers.menu.remove();
+    window.eventBus.on('projects:closeProject', async (event) => {
+        await layers.unload();
         current_project = null;
         current_layer = null;
     });
@@ -139,10 +138,9 @@ export const layers = (function(){
         open: () => {  
         },
         load: async () => {
+            layers.menu.create();
             let layers_data 
             try{
-                console.log("UNLOAD LAYERS")
-                console.log("CURRENT PROJECT " + current_project)
                 layers_data = await database.load("Layers", `layers/${current_project}`); 
             }catch(error){
                 return null;
@@ -152,21 +150,22 @@ export const layers = (function(){
                 addLayerToMap(layer.id);
             });
             window.eventBus.emit('layers:layersLoaded', {});
+            layers.select(layers_data[0].id);
             return layers_data;
         },
         unload: async () => {
-            let layers 
+            let layers_data 
             try{
-                console.log("UNLOAD LAYERS")
-                console.log("CURRENT PROJECT " + current_project)
-                
-                layers = await database.load("Layers", `layers/${current_project}`); 
+               layers_data = await database.load("Layers", `layers/${current_project}`); 
             }catch(error){
                 return null;
             }
-            for(const layer of layers){
+            for(const layer of layers_data){
                 deleteLayerFromMap(layer.id);
+                layers.menu.delete(layer.id);
             }
+            layers.menu.remove();
+            
         },
         add: async (layer_name) => {
             if(!current_project) return null

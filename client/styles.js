@@ -96,7 +96,6 @@ export const styles = (function(){
             await styles.unload();
             let points_styles;
             try {
-                console.log("CURRENT_PROJECT: ", current_project);
                 points_styles = await database.load('points styles', `points_styles/${current_project}`);
                 
             } catch (error) {

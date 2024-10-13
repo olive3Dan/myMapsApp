@@ -14,6 +14,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   createMapToolsMenu();
   
   users.menu.create();
-  users.login("Daniel", "daniel");
-  projects.open(94);
+  users.login("Admin", "admin");
 });

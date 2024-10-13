@@ -1,7 +1,4 @@
-//POP UP MESSAGE SISTEM
-//separar o formulario do seu estilo
-//SIMPLIFICAR A FUNCAO CREATE FORM
-//ATIVAVR os ERROS NOS FORMULARIOS
+
 import {projects} from './projects.js';
 export function newPopUpMessage(text, type){
     alert(text);
@@ -59,33 +56,40 @@ export function createButton(text, id, iconClasses, buttonClasses, clickHandler)
     button.appendChild(buttonText);
     return button;
 }
-export function addOptionsToSelect(select, data) {
-    if(!select) {
-        console.log("NO SELECT", select)
-        console.log("TO PUT", data)
-    }
-    while (select.firstChild) {
-        select.removeChild(select.firstChild);
-    }
-    data.forEach(item => {
-        select.appendChild(createElementWithAttributes('option', {
-            value: item.value,
-            text: item.text
-        }));
+export function addOptionsToSelect(select, options) {
+    options.forEach(optionData => {
+        const option = createElementWithAttributes('option', {
+            value: optionData.value,
+            textContent: optionData.text
+        });
+        if (optionData.selected) {
+            option.selected = true;
+        }
+        select.appendChild(option);
     });
 }
 export function createSelectElement(field) {
     const container = createElementWithAttributes('div', { class: 'formFieldContainer' });
+    
     container.appendChild(createElementWithAttributes('label', {
         textContent: field.label,
         htmlFor: field.id
     }));
+    
     const select = createElementWithAttributes('select', {
         id: field.id,
         placeholder: field.placeholder,
         autocomplete: field.autocomplete
     });
+    
+    // Adiciona as opções ao <select>
     addOptionsToSelect(select, field.options);
+    
+    // Seleciona o valor correto, se houver
+    if (field.value) {
+        select.value = field.value; // Define o valor do <select> como o valor predefinido
+    }
+
     container.appendChild(select);
     return container;
 }
@@ -110,6 +114,7 @@ export function createForm(containerId, formId, formTitle, inputFields, buttonTe
     const form = createElementWithAttributes('form', { id: formId });
     const title = createElementWithAttributes('h2', { textContent: formTitle });
     form.appendChild(title);
+
     inputFields.forEach(field => {
         if (field.type === 'section_divider') {
             if (field.text) {
@@ -122,22 +127,32 @@ export function createForm(containerId, formId, formTitle, inputFields, buttonTe
             let element;
             if (field.type === 'select') {
                 element = createSelectElement(field);
-                
             } else {
                 element = createInputElement(field);
+            }
+            // Adicionar pré-visualização para campo de imagem
+            if (field.type === 'file' && field.previewUrl) {
+                const previewImage = createElementWithAttributes('img', {
+                    src: field.previewUrl,
+                    class: 'imagePreview', // Classe para estilizar a pré-visualização
+                    alt: 'Preview da imagem atual'
+                });
+                form.appendChild(previewImage);
             }
             form.appendChild(element);
         }
     });
+
     const buttonContainer = createElementWithAttributes('div', { class: 'buttonContainer' });
-    const submitButton = createButton(buttonText, `${formId}SubmitButton`, ['fa-check'],["formButton"], submitHandler);
-    const closeBtn = createButton('Close', `${formId}CloseButton`, ['fa-times'],["formButton"], function () {formContainer.remove();});
+    const submitButton = createButton(buttonText, `${formId}SubmitButton`, ['fa-check'], ["formButton"], submitHandler);
+    const closeBtn = createButton('Close', `${formId}CloseButton`, ['fa-times'], ["formButton"], function () {
+        formContainer.remove();
+    });
 
     buttonContainer.append(submitButton, closeBtn);
-    form.append( buttonContainer);
+    form.append(buttonContainer);
     formContainer.appendChild(form);
     document.body.appendChild(formContainer);
-    
 }
 let activeContextMenu = null;  // Keep track of the currently active context menu
 
@@ -213,87 +228,7 @@ export function createContextMenu(targetElement, menuItems, options = {}) {
 
     document.addEventListener('click', handleOutsideClick);
 }
-/*
-export function createDataTablePopup(title, headers, visible_fields, values, actions) {
-    const popup = createElementWithAttributes('div', { class: ["popupForm"] });
-    //HEAD
-    const header = createElementWithAttributes('h2', { textContent: title });
-    popup.appendChild(header);
-    const tableContainer = createElementWithAttributes('div', { class: ['table-container'] });
-    const table = document.createElement('table');
-    const thead = document.createElement('thead');
-    const theadRow = document.createElement('tr');
-    headers.forEach(field => {
-        const th = createElementWithAttributes('th', { textContent: field });
-        theadRow.appendChild(th);
-    });
-    const actionsTh = createElementWithAttributes('th', { textContent: 'Acciones' });
-    theadRow.appendChild(actionsTh);
-    thead.appendChild(theadRow);
-    table.appendChild(thead);
-    //BODY
-    const tbody = createElementWithAttributes('tbody', { id: 'table-body' });
-    values.forEach(value => {
-        addRow(tbody, visible_fields, value, actions);
-    });
-    table.appendChild(tbody);
-    tableContainer.appendChild(table);
-    popup.appendChild(tableContainer);
-    const buttonsContainer = document.createElement('div');
-    const addButton = createButton('Add Row', 'add-button', [], [], async () => {
-        const new_object = await actions.add();
-        addRow(tbody, visible_fields, new_object, actions);
-    });
-    const closeButton = createButton('Close', 'close-button', [], [], () => document.body.removeChild(popup));
-    buttonsContainer.append(addButton, closeButton);
-    popup.appendChild(buttonsContainer);
-    document.body.appendChild(popup);
-}
 
-function addRow(tbody, visible_fields, value, actions) {
-    const row = document.createElement('tr');
-    row.dataset.rowData = JSON.stringify(value); // Store the entire value object
-
-    visible_fields.forEach(field => {
-        const td = createElementWithAttributes('td', { contentEditable: true, textContent: value[field] || '' });
-        td.dataset.field = field; // Set the custom data attribute
-        row.appendChild(td);
-    });
-
-    const save_button = createButton('', '', ['fa-floppy-disk'], ["formButton"], async function () {
-        const row = this.closest('tr');
-        const object_data = getRowData(row);
-        object_data.values = object_data.values.split(";");
-        await actions.edit(object_data);
-        save_button.style.display = 'none';
-    });
-    save_button.style.display = 'none';
-    
-    const delete_button = createButton('', '', ['fa-trash'], ["formButton"], async function () {
-        const row = this.closest('tr');
-        const object_data = getRowData(row);
-        await actions.delete(object_data);
-        row.remove();
-    });
-
-    const actionsTd = document.createElement('td');
-    actionsTd.appendChild(save_button);
-    actionsTd.appendChild(delete_button);
-    row.appendChild(actionsTd);
-    tbody.appendChild(row);
-
-    row.addEventListener('input', function () {
-        save_button.style.display = 'inline-block';
-    });
-}
-function getRowData(row) {
-    const data = {};
-    row.querySelectorAll('td[data-field]').forEach(cell => {
-        const select = cell.querySelector('select');
-        data[cell.dataset.field] = select ? select.value : cell.textContent;
-    });
-    return data;
-}*/
 export function createDataTablePopup(title, headers, visible_fields, values, actions) {
     const popup = createElementWithAttributes('div', { class: ["popupForm"] });
     // HEAD
@@ -341,7 +276,6 @@ export function createDataTablePopup(title, headers, visible_fields, values, act
 function addRow(tbody, fields, value, actions) {
     const row = document.createElement('tr');
     row.dataset.rowData = JSON.stringify(value);
-
     let dependentFields = [];
     fields.forEach(field => {
         const td = document.createElement('td');
@@ -356,8 +290,10 @@ function addRow(tbody, fields, value, actions) {
             }
             field.options.forEach(option => {
                 const optionElement = createElementWithAttributes('option', { textContent: option.label, value:option.value });
-                const option_name = JSON.parse(option.value).property_name;
-                if (value[field.name] == option_name) {
+                const option_data = JSON.parse(option.value);
+                console.log("option_value", option_data.name)
+                console.log(value[field.name] + " == " + option_data.name )
+                if (value[field.name] == option_data.name) {
                     optionElement.selected = true; 
                 }
                 select.appendChild(optionElement);
@@ -372,7 +308,6 @@ function addRow(tbody, fields, value, actions) {
             });
             td.appendChild(select);
         } else {
-            
             const input = createElementWithAttributes('input', { type: field.inputType || 'text' });
             if (Array.isArray(value[field.name])) {
                 input.value = value[field.name].join(';');
@@ -384,7 +319,6 @@ function addRow(tbody, fields, value, actions) {
             });
             td.appendChild(input);
         }
-
         row.appendChild(td);
     });
 

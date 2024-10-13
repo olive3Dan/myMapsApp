@@ -59,7 +59,7 @@ export const properties = (function(){
     const menu = {
         create: async() => {
             const project_properties = await database.load("Project Properties", `project_properties/${current_project}`);
-            console.log(project_properties);
+            
             const actions = {
                 add: async () => {
                    return  await properties.add("", "", "");

@@ -209,15 +209,21 @@ html, body {
   background-color: #f0f0f0;
 }
 /*FEATURE POP UP*/
+:root {
+  --popup-width: 5rem; /* Define a largura base do popup, fácil de ajustar */
+  --popup-padding: 1.25rem; /* Define o padding base */
+  --arrow-size: 0.625rem; /* Define o tamanho da seta */
+}
+
 .feature-popup {
-  position: relative; /* Relative as it's inside an OpenLayers overlay */
+  position: relative; /* Relativo pois está dentro de um overlay do OpenLayers */
   background-color: white;
   border: 1px solid #ccc;
-  border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  padding: 20px;
+  border-radius: 0.625rem; /* 10px em rem */
+  box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+  padding: var(--popup-padding);
   z-index: 1000;
-  width :350px;
+  width: var(--popup-width); /* Largura fácil de ajustar */
 }
 
 .feature-popup h2 {
@@ -225,25 +231,25 @@ html, body {
 }
 
 .feature-popup .footer {
-  margin-top: 10px;
+  margin-top: 0.625rem; /* 10px em rem */
 }
 
 .feature-popup img {
-  max-width: 100%; /* Ensures the image does not overflow */
+  max-width: 100%; /* Para garantir que a imagem nunca exceda a largura do popup */
   height: auto;
   display: inline-block;
-  margin-bottom: 10px;
+  margin-bottom: 0.625rem; /* 10px em rem */
 }
 
 .feature-popup-arrow {
   position: absolute;
-  top: 10px; /* Positioned below the feature-popup */
+  top: var(--arrow-size); /* Posiciona a seta abaixo do topo */
   left: 50%;
   width: 0;
   height: 0;
-  border-left: 10px solid transparent;
-  border-right: 10px solid transparent;
-  border-top: 10px solid white; /* Arrow color same as feature-popup background */
+  border-left: var(--arrow-size) solid transparent;
+  border-right: var(--arrow-size) solid transparent;
+  border-top: var(--arrow-size) solid white; /* Cor da seta igual ao fundo do popup */
   transform: translateX(-50%);
 }
 /*LAYERS */
@@ -278,16 +284,24 @@ html, body {
   z-index: 1000;
   cursor: move;
 }
+
+.feature-popup {
+  width: 100%; 
+  display: block;
+  width:300px; 
+}
+
 .table-container {
   max-height: 400px;
   overflow-y: auto;
-  display:inline-block;
-  width:1000px
-  
+  width: 100%; /* Garantir que o container ocupe a largura total */
+  display: block;
 }
-table {
-  
- 
+
+.table-container table {
+  width: 800px; /* Ocupa toda a largura do container */
+  table-layout: fixed; /* Garante que as colunas tenham o mesmo tamanho */
+  border-collapse: collapse; /* Remove espaços entre as bordas */
 }
 
 table, th, td {
@@ -297,11 +311,11 @@ table, th, td {
 th, td {
   padding: 8px;
   text-align: left;
-  white-space: nowrap; /* Impede que o conteúdo quebre linhas */
+  white-space: nowrap; /* Impede a quebra de linha no conteúdo */
+  overflow: hidden; /* Garante que o conteúdo extra seja escondido */
+  text-overflow: ellipsis; /* Adiciona "..." ao conteúdo que não cabe */
 }
-td select {
-  
-}
+
 .buttons {
   display: flex;
   justify-content: space-between;
@@ -544,7 +558,6 @@ td select {
 }
 
 .popup table.property-table {
-  width: 100%;
   border-collapse: collapse;
   text-align: left;
   display:inline-block;

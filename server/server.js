@@ -7,6 +7,9 @@ const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
 require('dotenv').config();
 const app = express();
+const multer = require('multer');
+const upload = multer();
+const Buffer = require('buffer').Buffer;
 
 let retryCount = 0;
 app.use(bodyParser.json());
@@ -424,27 +427,32 @@ app.delete("/delete_layer/:id",authenticateToken, async (req, res) => {
 app.get("/project_points/:project_id", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT *, ST_AsGeoJSON(coordinates)::json->'coordinates' AS coordinates 
+      SELECT *, 
+             ST_AsGeoJSON(coordinates)::json->'coordinates' AS coordinates
       FROM 
-      ((projects INNER JOIN layers ON projects.id = layers.project_id)
-      INNER JOIN points ON layers.id = points.layer_id)
-      WHERE projects.id = $1`,
-      [req.params.project_id]
-    );
+        ((projects INNER JOIN layers ON projects.id = layers.project_id)
+        INNER JOIN points ON layers.id = points.layer_id)
+      WHERE projects.id = $1
+    `, [req.params.project_id]);
+
     res.status(200).json(result.rows);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal server error in points get" });
   }
 });
+
 app.get("/points/:layer_id", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT *, ST_AsGeoJSON(coordinates)::json->'coordinates' AS coordinates 
+      SELECT *, 
+             ST_AsGeoJSON(coordinates)::json->'coordinates' AS coordinates
       FROM points 
-      WHERE layer_id = $1`,
-      [req.params.layer_id]
-    );
+      WHERE layer_id = $1
+    `, [req.params.layer_id]);
+
+    
+
     res.status(200).json(result.rows);
   } catch (error) {
     console.error(error);
@@ -453,16 +461,18 @@ app.get("/points/:layer_id", async (req, res) => {
 });
 app.post("/add_point/:layer_id", async (req, res) => {
   try {
+    
     const result = await pool.query(
       `INSERT INTO points (name, coordinates, foto, layer_id) 
        VALUES($1, ST_SetSRID(ST_MakePoint($2, $3), 4326), $4, $5) 
        RETURNING id, name, ARRAY[ST_X(coordinates), ST_Y(coordinates)] AS coordinates, foto, layer_id;`,
-      [ req.body.name, 
-        req.body.lon, req.body.lat, 
-        req.body.foto, 
-        req.params.layer_id ]
+      [req.body.name, 
+       req.body.lon, req.body.lat, 
+       req.body.foto, 
+       req.params.layer_id]
     );
-    console.log(result.rows[0]);
+    console.log("ADD POINT: ")
+    console.log(result);
     res.status(201).json(result.rows[0]);
 
   } catch (error) {
@@ -472,26 +482,30 @@ app.post("/add_point/:layer_id", async (req, res) => {
 });
 app.put("/update_point/:id", async (req, res) => {
   try {
+    console.log("POINT UPDATE: "); 
+    console.log(req.body);
     const result = await pool.query(
-      `UPDATE points SET 
-        name = $1, 
-        coordinates = ST_SetSRID(ST_MakePoint($2, $3), 4326), 
-        foto = $4,
-        layer_id = $5 
-       WHERE id = $6
-       RETURNING *`,
-      [req.body.name, 
-       req.body.coordinates[0], req.body.coordinates[1],  
-       req.body.foto, 
-       req.body.layer_id,  
-       req.params.id]
-    );
-    console.log("POINT UPDATE: ");
+        `UPDATE points SET 
+            name = $1, 
+            coordinates = ST_SetSRID(ST_MakePoint($2, $3), 4326), 
+            foto = $4,
+            layer_id = $5 
+          WHERE id = $6
+          RETURNING id, name, ARRAY[ST_X(coordinates), ST_Y(coordinates)] AS coordinates, foto, layer_id;`,
+        [
+            req.body.name, 
+            req.body.coordinates[0], 
+            req.body.coordinates[1],  
+            req.body.foto,
+            req.body.layer_id,  
+            req.params.id
+        ]
+      );
     console.log(result.rows[0]);
     res.status(200).json(result.rows[0]);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal server error in point put" });
+      console.error(error);
+      res.status(500).json({ error: "Internal server error in point put" });
   }
 });
 app.delete("/delete_point/:id", async (req, res) => {

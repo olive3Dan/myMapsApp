@@ -1,6 +1,7 @@
 //Como implementar a partilha de projetos entre os utilizadores?
 import { createElementWithAttributes, createContextMenu, newPopUpMessage, createForm, createButton } from './formUtils.js';
 import {database} from './databaseUtils.js'
+import {jwtDecode} from 'jwt-decode';
 export const projects = (function(){
     //private variables and functions
     let current_user = null;
@@ -16,7 +17,7 @@ export const projects = (function(){
     });
     let current_project = null;
     const project_container_id = 'project-container';
-    let projectDescription = createElementWithAttributes("span", {id:"project-description", innerHTML:"no description", class:"project-description"});
+    let projectDescription = createElementWithAttributes("span", {id:"project-description", innerHTML:"descrição do projeto...", class:"project-description"});
     let projectLabel = createElementWithAttributes("div", {innerHTML:"No Project", id:"project-label"});
     const forms = {
         openProject: async () => {
@@ -84,10 +85,15 @@ export const projects = (function(){
                 if(current_project){
                     menu_items.push(
                         { label: 'Rename Project', iconClasses:['fa-solid','fa-pen-to-square'], onClick: () =>{}},
-                        { label: 'Properties', iconClasses:['fa-regular','fa-rectangle-list'], onClick: () => window.eventBus.emit('properties:openPropertiesMenu', {})},
-                        { label: 'Styles', iconClasses:['fa-solid','fa-palette'], onClick: () => window.eventBus.emit('styles:openStylesMenu', {})},
                         { label: 'Delete Project', iconClasses: ['fa-solid', 'fa-trash'], onClick: () => projects.forms.deleteProject(current_project)}
                     );
+                    let current_user = jwtDecode(localStorage.getItem('user'));
+                    if(current_user.group_id == 7){
+                        menu_items.push(
+                            { label: 'Properties', iconClasses:['fa-regular','fa-rectangle-list'], onClick: () => window.eventBus.emit('properties:openPropertiesMenu', {})},
+                            { label: 'Styles', iconClasses:['fa-solid','fa-palette'], onClick: () => window.eventBus.emit('styles:openStylesMenu', {})},
+                        );    
+                    }
                 }
                 createContextMenu(contextMenuButton, menu_items, 'bottom-right');
             }); 
@@ -117,7 +123,7 @@ export const projects = (function(){
             const project = await database.load("Get Project", `project/${project_id}`);
             current_project = project.id;
             projectLabel.innerHTML = project.name;
-            projectDescription.innerHTML = "descrição sumaria do projeto...";
+            projectDescription.innerHTML = "";
             console.log("OPEN PROJECT ID " + project_id);
             window.eventBus.emit("projects:openProject", {project_id: project_id});
         },
@@ -148,13 +154,14 @@ export const projects = (function(){
         },
         edit:()=>{},
         delete: async (project_id) => {
+            
+            projects.close();
+            window.eventBus.emit("projects:deleteProject",{project_id:project_id});
             try{
                 await database.delete("project", "delete_project/", project_id); 
             }catch(error){
                 return null;
             }
-            projects.close();
-            window.eventBus.emit("projects:deleteProject",{project_id:project_id});
             return project_id;
         },
         menu: menu,
