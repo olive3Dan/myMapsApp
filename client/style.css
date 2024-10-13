@@ -1,22 +1,82 @@
 @import "node_modules/ol/ol.css";
 
-html,
-body {
-  display: flex;
+html, body {
   margin: 0;
   padding: 0;
   height: 100vh;
-  width:100%;
+  width: 100%;
   overflow: hidden;
+  font-family: Verdana, Geneva, Tahoma, sans-serif;
 }
 
 #map {
   flex-grow: 1;
-  /* Adjust height to occupy the remaining space */
   width: 100%;
   height: 100%;
-  /* Remove position, top, and left properties */
+  position: relative;
+  z-index: 1; /* Define o z-index do mapa para garantir que ele fique atrás do seletor */
 }
+
+.map-selector {
+  position: absolute;
+  bottom: 150px;
+  left: 10px;
+  z-index: 1000; /* Garante que o seletor esteja acima do mapa */
+}
+
+.map-selector-button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 12px 16px;
+  cursor: pointer;
+  font-size: 18px;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  transition: background-color 0.3s;
+}
+
+.map-selector-button:hover {
+  background-color: #0056b3;
+}
+
+.map-options {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  width: 220px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+}
+
+.map-option {
+  padding: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: background-color 0.3s;
+}
+
+.map-option:hover {
+  background-color: #f1f1f1;
+}
+
+.map-option i {
+  margin-right: 12px;
+  font-size: 24px;
+}
+
+.map-option span {
+  font-size: 16px;
+}
+.hidden-column {
+  display: none;
+}
+
 
 /* USERS */
 #currentUserDisplay {
@@ -39,7 +99,7 @@ body {
   position: fixed;
   top: 10px;
   right: 10px;
-  background: rgba(181, 181, 181, 0.8);
+  background: rgba(226, 226, 226, 0.8);
   padding: 15px;
   border-radius: 10px;
   box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
@@ -66,34 +126,206 @@ body {
   background: #0056b3;
 }
 
-#signoutButton {
+#logoutButton {
   margin-top: 20px;
   background: #ff0000;
 }
 
-#signoutButton:hover {
+#logoutButton:hover {
   background: #b30000;
 }
-/* Usuario actual */
 #currentUserDisplay {
   font-size: 18px;
   font-weight: bold;
   color: #333;
   margin-bottom: 10px;
 }
-/* popUpForms */
-.popupForm {
-  display: none;
-  background: #f0f0f0;
-  border-radius: 10px;
-  padding: 20px;
-  width: 300px;
+/*PROJECTS*/
+#project-container{
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  width:300px;
+  background: rgba(220, 219, 219, 0.8);
+  padding: 15px;
+  border-radius: 0px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1000; 
+}
+#project-label-container {
+  width: 100%;  /* Full width */
+  overflow: hidden;  /* Clear floats */
+  
+}
+
+#project-label {
+  font-size: 34px;
+  color: #333;
+  float:left;
+}
+
+.project-description {
+  font-size: 16px;
+  font-style: italic;
+  color: #666;
+}
+#projects-context-menu-button{
+  float:right;
+}
+
+/*CONTEXT MENU*/
+.context-menu-button {
+  position: relative; 
+  right: 10px;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 30px;
+  color: #333;
+}
+.context-menu-button:hover{
+  background-color: #f0f0f0;
+}
+.context-menu {
+  position: fixed;
+  background: rgba(220, 219, 219, 0.8);
+  border-radius: 0px;
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction:column;
+  align-items: flex-start;
+  z-index: 1000;
+  width:200px;
+}
+.context-menu-item {
+  cursor: pointer;
+  width: 195px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left:5px;
+  
+}
+.context-menu-item:hover {
+  background-color: #f0f0f0;
+}
+/*FEATURE POP UP*/
+:root {
+  --popup-width: 5rem; /* Define a largura base do popup, fácil de ajustar */
+  --popup-padding: 1.25rem; /* Define o padding base */
+  --arrow-size: 0.625rem; /* Define o tamanho da seta */
+}
+
+.feature-popup {
+  position: relative; /* Relativo pois está dentro de um overlay do OpenLayers */
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 0.625rem; /* 10px em rem */
+  box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+  padding: var(--popup-padding);
+  z-index: 1000;
+  width: var(--popup-width); /* Largura fácil de ajustar */
+}
+
+.feature-popup h2 {
+  margin-top: 0;
+}
+
+.feature-popup .footer {
+  margin-top: 0.625rem; /* 10px em rem */
+}
+
+.feature-popup img {
+  max-width: 100%; /* Para garantir que a imagem nunca exceda a largura do popup */
+  height: auto;
+  display: inline-block;
+  margin-bottom: 0.625rem; /* 10px em rem */
+}
+
+.feature-popup-arrow {
+  position: absolute;
+  top: var(--arrow-size); /* Posiciona a seta abaixo do topo */
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-left: var(--arrow-size) solid transparent;
+  border-right: var(--arrow-size) solid transparent;
+  border-top: var(--arrow-size) solid white; /* Cor da seta igual ao fundo do popup */
+  transform: translateX(-50%);
+}
+/*LAYERS */
+#layers-container-label{
+  font-size: 24px;
+  color: #333;
+  margin: 10px;
+  display:inline-block;
+}
+#layers-container{
+  position: fixed;
+  top: 300px;
+  left: 10px;
+  width:300px;
+  
+  background: rgba(220, 219, 219, 0.8);
+  
+  border-radius: 0px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1000; 
+}
+/*DATA TABLE*/
+.popup {
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 1;
+  width: 400px;
+  border: 1px solid #000;
+  background: #fff;
+  padding: 10px;
+  z-index: 1000;
+  cursor: move;
 }
+
+.feature-popup {
+  width: 100%; 
+  display: block;
+  width:300px; 
+}
+
+.table-container {
+  max-height: 400px;
+  overflow-y: auto;
+  width: 100%; /* Garantir que o container ocupe a largura total */
+  display: block;
+}
+
+.table-container table {
+  width: 800px; /* Ocupa toda a largura do container */
+  table-layout: fixed; /* Garante que as colunas tenham o mesmo tamanho */
+  border-collapse: collapse; /* Remove espaços entre as bordas */
+}
+
+table, th, td {
+  border: 1px solid #000;
+}
+
+th, td {
+  padding: 8px;
+  text-align: left;
+  white-space: nowrap; /* Impede a quebra de linha no conteúdo */
+  overflow: hidden; /* Garante que o conteúdo extra seja escondido */
+  text-overflow: ellipsis; /* Adiciona "..." ao conteúdo que não cabe */
+}
+
+.buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+.buttons button {
+  margin: 0 5px;
+}
+/* popUpForms */
+
 .popupForm input[type="text"],
 .popupForm input[type="password"] {
   width: 100%;
@@ -104,7 +336,7 @@ body {
 .popupForm button {
   margin: 10px 0;
   padding: 10px;
-  border: none;
+  border: 20px;
   border-radius: 5px;
   background: #007BFF;
   color: white;
@@ -135,8 +367,11 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  width: auto; 
+  
 }
-.formInput {
+
+.popupForm input {
   margin: 10px 0;
   padding: 5px;
   width: 80%;
@@ -147,22 +382,19 @@ body {
 .formButton {
   margin: 5px;
   padding: 10px;
-  border: none;
+  border: 10px;
   border-radius: 5px;
   background: #007BFF;
   color: white;
   cursor: pointer;
   text-decoration: none;
-  /*display: inline-block;*/
+  display: inline-block;
   text-align: center;
 }
 .formButton:hover {
   background: #0056b3;
 }
-.errorLabel {
-  color: red;
-  margin-top: 10px;
-}
+
 .popupForm select {
   width: 100%;
   padding: 10px;
@@ -172,35 +404,37 @@ body {
   border-radius: 5px;
   background-color: white;
   font-size: 16px; 
-  /* Agrega cualquier otro estilo deseado */
 }
-.popupForm select:hover {
-  /* Agrega estilos de hover aquí si lo deseas */
+  .popup h2 {
+    margin-top: 0;
 }
 
-/*SIDEBAR*/
-#project_menu button {
-  margin-top: 10px;
+.popupForm .footer {
+    margin-top: 10px;
+}
+.popupForm input[type="file"] {
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background-color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.popupForm input[type="file"]::-webkit-file-upload-button {
+  background: #007BFF;
+  color: white;
   padding: 10px;
   border: none;
-  background-color: #007BFF;
-  color: #fff;
-  cursor: pointer;
-  text-decoration: none;
   border-radius: 5px;
-  display: block;
-  overflow-y: auto;
+  cursor: pointer;
 }
-#project_menu button:hover {
-  background-color: #0056b3;
-}
-.sidebar {
-  width: auto;
-  background-color: #ffffff;
-  box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.05);
-  padding: 20px;
-  /* Set a height so that the sidebar stretches along the map */
-  height: 100%;
+
+.popupForm input[type="file"]::-webkit-file-upload-button:hover {
+  background: #0056b3;
 }
 /*LAYERS ACCORDION*/
 .accordion {
@@ -215,7 +449,8 @@ body {
   cursor: pointer;
 }
 .accordion-item:hover {
-  border-left-color: gray;
+  border-left-color: rgb(251, 250, 250);
+  
 }
 .accordion-item.highlighted {
   border-left-color: #007BFF;
@@ -241,23 +476,7 @@ body {
   transition: max-height 0.3s ease;
   padding: 0 10px;
 }
-.accordion-content.show {
-  max-height: 500px; /* Or set to a value suitable for your largest content */
-  padding: 10px;
-}
-.accordion-edit-btn {
-  background-color: #007bff;
-  color: #fff;
-  border: none;
-  padding: 4px 6px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-  margin-left: auto;
-}
-.accordion-edit-btn:hover {
-  background-color: #0056b3;
-}
+
 .accordion-buttons {
   margin-left: auto; /* Alinea los botones a la derecha */
 }
@@ -290,15 +509,14 @@ body {
 }
 /*POINTS*/
 .point-menu {
-  position: absolute; /* Coloca el menú en una posición absoluta en relación con su contenedor principal */
-  top: 10px; /* Ajusta la distancia desde la parte superior del contenedor principal */
-  left: 30%; /* Ajusta la distancia desde la parte izquierda del contenedor principal */
-  
-  background-color: rgba(255, 255, 255, 0.8); /* Color de fondo con opacidad */
-  border: 1px solid #ccc; /* Borde del menú */
-  padding: 10px; /* Espaciado interno del menú */
-  z-index: 1000; /* Z-index para asegurarse de que el menú aparezca sobre otros elementos */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Sombra suave */
+  position: absolute; 
+  top: 10px; 
+  left: 30%; 
+  background-color: rgba(220, 219, 219, 0.8);
+  border: 1px solid #ccc; 
+  padding: 10px; 
+  z-index: 1000; 
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); 
 }
 .point-container {
   display: flex;
@@ -307,10 +525,10 @@ body {
   cursor: pointer;
 }
 .point-container:hover {
-  background-color: #ccc;
+  background-color: #faf8f8;
 }
 .point-container-highlighted{
-  background-color: #ccc;
+  background-color: #faf8f8;
 }
 .point-icon {
   margin-right: 5px;
@@ -340,14 +558,15 @@ body {
 }
 
 .popup table.property-table {
-  width: 100%;
   border-collapse: collapse;
   text-align: left;
+  display:inline-block;
 }
 
 .popup table.property-table td {
   padding: 6px 10px;
   border: 1px solid #ccc;
+  
 }
 
 .popup .footer {
@@ -385,3 +604,4 @@ body {
   display: block; 
   margin: 0 auto; 
 }
+/*BASE MAP SELECTOR*/
